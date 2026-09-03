@@ -1,11 +1,15 @@
 import { apiClient } from '@/api/client';
 import { endpoints } from '@/api/endpoints';
-import { MODULE_TYPE } from '@/config/constants';
+import { getActiveModule } from '@/store/moduleStore';
 import type { VendorDetails } from '@/types';
 
 export const vendorService = {
   getMe() {
     return apiClient.get(endpoints.auth.me);
+  },
+
+  getStoreProfile() {
+    return apiClient.get(endpoints.vendor.update);
   },
 
   getAccount() {
@@ -16,17 +20,17 @@ export const vendorService = {
     return apiClient.get(endpoints.vendor.services);
   },
 
-  updateAccount(payload: Pick<VendorDetails, 'name' | 'shopname'>) {
+  updateAccount(payload: Pick<VendorDetails, 'name' | 'shopname' | 'gst_no'>) {
     return apiClient.post(endpoints.vendor.update, payload);
   },
 
-  setOnline(isOnline: boolean, moduleType: string = MODULE_TYPE) {
+  setOnline(isOnline: boolean, moduleType: string = getActiveModule()) {
     return apiClient.patch(endpoints.vendor.online, { isOnline, moduleType });
   },
 
-  getReports() {
+  getReports(moduleType: string = getActiveModule()) {
     return apiClient.get(endpoints.orders.reports, {
-      params: { moduleType: MODULE_TYPE },
+      params: { moduleType },
     });
   },
 };

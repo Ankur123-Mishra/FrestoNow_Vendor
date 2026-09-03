@@ -8,6 +8,7 @@ import { AppEmpty } from '@/components/ui/AppEmpty';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { AppLoader } from '@/components/ui/AppLoader';
 import { orderService } from '@/api/services';
+import { useModuleStore } from '@/store/moduleStore';
 import { useToastStore } from '@/store/toastStore';
 import { colors, radius, shadows } from '@/theme';
 import { asArray, getEntityId, getErrorMessage, unwrapPayload } from '@/utils/apiHelpers';
@@ -21,18 +22,24 @@ import {
   getOrderItems,
   getOrderTotal,
 } from '@/utils/order';
+import { orderChannelLabel, orderStatusLabel } from '@/utils/orderActions';
 import type { AppNavigation, Order, OrderItem } from '@/types';
+import type { ModuleType } from '@/config/constants';
 
 const PREVIEW_COUNT = 3;
 
 export function OrderListScreen() {
   const navigation = useNavigation<AppNavigation>();
   const showToast = useToastStore(s => s.show);
+  const activeModule = useModuleStore(s => s.activeModule);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const res = await orderService.getAll();
       setOrders(asArray<Order>(unwrapPayload(res.data)));
@@ -42,7 +49,7 @@ export function OrderListScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [showToast]);
+  }, [showToast, activeModule]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,7 +74,7 @@ export function OrderListScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} />
         }
         ListEmptyComponent={
           <AppEmpty icon={ClipboardList} title="No orders yet" subtitle="New customer orders will appear here." />
@@ -78,6 +85,7 @@ export function OrderListScreen() {
             <OrderCard
               order={item}
               onPress={() => id && navigation.navigate('OrderDetail', { orderId: id })}
+              moduleType={activeModule}
             />
           );
         }}
@@ -86,14 +94,24 @@ export function OrderListScreen() {
   );
 }
 
-function OrderCard({ order, onPress }: { order: Order; onPress: () => void }) {
+function OrderCard({
+  order,
+  onPress,
+  moduleType,
+}: {
+  order: Order;
+  onPress: () => void;
+  moduleType: ModuleType;
+}) {
   const items = getOrderItems(order);
   const firstItem = items[0];
   const extraCount = Math.max(items.length - 1, 0);
   const previewItems = items.slice(0, PREVIEW_COUNT);
   const totalQty = items.reduce((sum, row) => sum + getOrderItemQty(row), 0);
   const fulfillmentRaw = pickString(order.fulfillmentType, order.orderChannel);
-  const fulfillment = fulfillmentRaw ? titleCaseStatus(fulfillmentRaw) : '';
+  const fulfillment = fulfillmentRaw
+    ? orderChannelLabel(order.orderChannel) || titleCaseStatus(fulfillmentRaw)
+    : '';
   const payment = order.paymentMode ? titleCaseStatus(order.paymentMode) : '';
 
   return (
@@ -108,7 +126,7 @@ function OrderCard({ order, onPress }: { order: Order; onPress: () => void }) {
             {fulfillment ? ` · ${fulfillment}` : ''}
           </Text>
         </View>
-        <AppBadge label={titleCaseStatus(order.status)} />
+        <AppBadge label={orderStatusLabel(order.status, moduleType)} />
       </View>
 
       {firstItem ? (

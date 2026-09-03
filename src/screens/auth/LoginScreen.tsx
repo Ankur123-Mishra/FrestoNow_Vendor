@@ -70,7 +70,7 @@ export function LoginScreen() {
           placeholder="Your password"
         />
         <AppButton title="Login" onPress={onSubmit} loading={loading} />
-        <Pressable onPress={() => navigation.navigate('Register')} style={styles.linkWrap}>
+        <Pressable onPress={() => navigation.navigate('ModuleSelect')} style={styles.linkWrap}>
           <Text style={styles.link}>New vendor? Create an account</Text>
         </Pressable>
       </View>

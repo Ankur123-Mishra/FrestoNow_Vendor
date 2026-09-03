@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -16,7 +16,9 @@ import { AppCard } from '@/components/ui/AppCard';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { StatCard } from '@/components/ui/StatCard';
 import { vendorService } from '@/api/services';
+import { getModuleMeta } from '@/config/modules';
 import { useAuthStore } from '@/store/authStore';
+import { getActiveModule, useModuleStore } from '@/store/moduleStore';
 import { useToastStore } from '@/store/toastStore';
 import { colors } from '@/theme';
 import { getErrorMessage, mapDashboardStats } from '@/utils/apiHelpers';
@@ -28,42 +30,61 @@ export function DashboardScreen() {
   const user = useAuthStore(s => s.user);
   const refreshProfile = useAuthStore(s => s.refreshProfile);
   const showToast = useToastStore(s => s.show);
+  const activeModule = useModuleStore(s => s.activeModule);
+  const meta = getModuleMeta(activeModule);
   const { isTablet } = useResponsive();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const requestIdRef = useRef(0);
+  const statsRef = useRef<DashboardStats | null>(null);
+  statsRef.current = stats;
 
   const load = useCallback(async (silent = false) => {
+    const requestId = ++requestIdRef.current;
     if (!silent) {
       setLoading(true);
     }
     try {
-      const [reportsRes] = await Promise.all([
-        vendorService.getReports(),
-        refreshProfile(),
-      ]);
+      await refreshProfile();
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+      const reportsRes = await vendorService.getReports(getActiveModule());
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       setStats(mapDashboardStats(reportsRes.data));
     } catch (error) {
-      showToast(getErrorMessage(error, 'Could not load dashboard'), 'error');
+      if (requestId === requestIdRef.current) {
+        showToast(getErrorMessage(error, 'Could not load dashboard'), 'error');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [refreshProfile, showToast]);
 
   useFocusEffect(
     useCallback(() => {
-      load(true);
-    }, [load]),
+      void load(statsRef.current != null);
+      return () => {
+        requestIdRef.current += 1;
+      };
+    }, [load, activeModule]),
   );
 
   const greeting = pickString(user?.name, user?.shopname, 'Vendor');
   const totals = stats?.totals;
 
-  if (loading && !stats) {
+  if (loading && !refreshing) {
     return (
       <Screen>
-        <AppLoader label="Fetching dashboard" />
+        <View style={styles.loaderWrap}>
+          <AppLoader label="Fetching dashboard" />
+        </View>
       </Screen>
     );
   }
@@ -76,7 +97,7 @@ export function DashboardScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} />
         }>
-        <AppHeader title={`Hi, ${greeting}`} subtitle="E-commerce shop overview" />
+        <AppHeader title={`Hi, ${greeting}`} subtitle={meta.dashboardSubtitle} />
 
         <View style={[styles.grid, isTablet && styles.gridWide]}>
           <StatCard label="Orders" value={String(totals?.orders ?? 0)} icon={ShoppingBag} />
@@ -168,6 +189,7 @@ export function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingBottom: 32 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12 },
   gridWide: { gap: 14 },

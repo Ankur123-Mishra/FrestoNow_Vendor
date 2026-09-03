@@ -66,6 +66,7 @@ export function getOrderItems(order: Order): OrderItem[] {
 
 export function getOrderCustomerName(order: Order): string {
   const user = order.user as OrderCustomer | undefined;
+  const guest = order.guestCustomer as OrderCustomer | undefined;
   const address = asRecord(order.address);
   const addressName = address
     ? [pickString(address.fristname, address.firstname, address.firstName), pickString(address.lastname, address.lastName)]
@@ -73,13 +74,14 @@ export function getOrderCustomerName(order: Order): string {
         .join(' ')
         .trim()
     : '';
-  return pickString(user?.name, order.customerName, addressName, 'Customer');
+  return pickString(user?.name, guest?.name, order.customerName, addressName);
 }
 
 export function getOrderCustomerPhone(order: Order): string {
   const user = order.user as OrderCustomer | undefined;
+  const guest = order.guestCustomer as OrderCustomer | undefined;
   const address = asRecord(order.address);
-  return pickString(user?.phone, address?.mobile, address?.phone);
+  return pickString(user?.phone, guest?.phone, address?.mobile, address?.phone);
 }
 
 export function getOrderCustomerEmail(order: Order): string {
@@ -128,8 +130,10 @@ export function getOrderItemVendor(item: OrderItem): string {
 
 export function getOrderItemVariantLabel(item: OrderItem): string {
   const variant = asRecord(item.variant);
+  const metadata = asRecord(item.metadata);
+  const food = asRecord(metadata?.foodCustomization);
   const attrs = Array.isArray(variant?.attributes) ? variant.attributes : [];
-  return attrs
+  const fromAttrs = attrs
     .map(attr => {
       const rec = asRecord(attr);
       if (!rec) {
@@ -144,6 +148,25 @@ export function getOrderItemVariantLabel(item: OrderItem): string {
     })
     .filter(Boolean)
     .join(' · ');
+  return pickString(fromAttrs, food?.variantName, variant?.name);
+}
+
+export function getOrderItemCustomizations(item: OrderItem): string[] {
+  const metadata = asRecord(item.metadata);
+  const food = asRecord(metadata?.foodCustomization);
+  const list = Array.isArray(food?.customizations) ? food.customizations : [];
+  return list
+    .map(entry => {
+      if (typeof entry === 'string') {
+        return entry.trim();
+      }
+      const rec = asRecord(entry);
+      if (!rec) {
+        return '';
+      }
+      return pickString(rec.name, rec.label, rec.title, rec.value);
+    })
+    .filter(Boolean);
 }
 
 export function getOrderAddress(order: Order): OrderAddress | null {
@@ -192,26 +215,46 @@ export function getOrderStatusHistories(order: Order): OrderStatusHistory[] {
   });
 }
 
+function hasAmount(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') {
+    return false;
+  }
+  const n = Number(value);
+  return !Number.isNaN(n) && n !== 0;
+}
+
 export function getOrderBillRows(order: Order): { label: string; amount: number; emphasize?: boolean }[] {
+  const tax = asRecord(order.taxSnapshot);
   const items = getOrderItems(order);
-  const subtotal = items.reduce((sum, item) => sum + getOrderItemPrice(item) * getOrderItemQty(item), 0);
+  const itemSubtotal = items.reduce((sum, item) => sum + getOrderItemPrice(item) * getOrderItemQty(item), 0);
+  const subtotal = hasAmount(tax?.subtotal) ? pickNumber(tax?.subtotal) : itemSubtotal;
   const rows: { label: string; amount: number; emphasize?: boolean }[] = [];
-  if (subtotal) {
+
+  if (hasAmount(subtotal)) {
     rows.push({ label: 'Items', amount: subtotal });
   }
-  const extras: { label: string; amount: number }[] = [
-    { label: 'Discount', amount: -Math.abs(pickNumber(order.discount)) },
-    { label: 'GST', amount: pickNumber(order.gst) },
-    { label: 'Delivery', amount: pickNumber(order.deliveryFee) },
-    { label: 'Packaging', amount: pickNumber(order.packagingFee) },
-    { label: 'Platform fee', amount: pickNumber(order.platformFee) },
-    { label: 'Tip', amount: pickNumber(order.tipAmount) },
+
+  const extras: { label: string; value: unknown; negate?: boolean }[] = [
+    { label: 'Discount', value: order.discount, negate: true },
+    { label: 'Delivery', value: order.deliveryFee },
+    { label: 'Packaging', value: order.packagingFee },
+    { label: 'Platform fee', value: order.platformFee },
+    { label: 'Small order fee', value: tax?.smallOrderFee },
+    { label: 'Service charge', value: order.serviceCharge },
+    { label: 'Tip', value: order.tipAmount },
+    { label: 'GST', value: hasAmount(order.gst) ? order.gst : tax?.taxAmount },
   ];
   extras.forEach(row => {
-    if (row.amount) {
-      rows.push(row);
+    if (!hasAmount(row.value)) {
+      return;
     }
+    const amount = pickNumber(row.value);
+    rows.push({ label: row.label, amount: row.negate ? -Math.abs(amount) : amount });
   });
-  rows.push({ label: 'Total', amount: getOrderTotal(order) || subtotal, emphasize: true });
+
+  const total = getOrderTotal(order) || subtotal;
+  if (rows.length > 0 || hasAmount(total)) {
+    rows.push({ label: 'Total', amount: total, emphasize: true });
+  }
   return rows;
 }

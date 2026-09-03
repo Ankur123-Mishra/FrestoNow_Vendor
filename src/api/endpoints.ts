@@ -1,6 +1,6 @@
 /**
  * Paths are relative to ENV.API_BASE_URL (https://frestonow.com/api).
- * E-commerce vendor APIs from the current backend script.
+ * Module-wise vendor APIs: E-Commerce, Grocery, and Food (ROS).
  */
 export const endpoints = {
   auth: {
@@ -25,13 +25,24 @@ export const endpoints = {
     list: '/platform/orders/vendor',
     reports: '/platform/orders/vendor/reports',
     byId: (id: string | number) => `/ecommerce/orders/${id}`,
-    status: (id: string | number) => `/ecommerce/orders/${id}/status`,
+    groceryById: (id: string | number) => `/grocery/orders/${id}`,
+    foodById: (id: string | number) => `/food/orders/${id}`,
+    status: (id: string | number) => `/platform/orders/vendor/${id}/status`,
+    groceryStatus: (id: string | number) => `/grocery/orders/${id}/status`,
+    foodStatus: (id: string | number) => `/food/orders/${id}/status`,
     shipments: (id: string | number) => `/ecommerce/orders/${id}/shipments`,
-    shiprocket: (id: string | number) => `/ecommerce/orders/${id}/shiprocket`,
+    shiprocket: (id: string | number) => `/platform/orders/vendor/${id}/shiprocket`,
+  },
+  delivery: {
+    track: (id: string | number) => `/delivery/track/${id}`,
   },
   inventory: {
     list: '/platform/inventory/vendor',
     update: (id: string | number) => `/platform/inventory/vendor/${id}`,
+  },
+  slots: {
+    vendor: '/platform/slots/vendor',
+    templates: '/platform/slots/vendor/templates',
   },
   returns: {
     list: '/platform/returns/vendor',
@@ -47,6 +58,26 @@ export const endpoints = {
     balance: '/wallet/balance',
   },
   finance: {
+    ledger: '/finance/ledger',
     payouts: '/finance/payouts',
+  },
+  food: {
+    sections: '/food/vendor/sections',
+    sectionById: (id: string | number) => `/food/vendor/sections/${id}`,
+    modifierGroups: '/food/vendor/modifier-groups',
+    attachModifier: (itemId: string | number, groupId: string | number) =>
+      `/food/vendor/items/${itemId}/modifier-groups/${groupId}`,
+    itemProfile: (id: string | number) => `/food/vendor/items/${id}/profile`,
+    kitchenOrders: '/food/vendor/kitchen/orders',
+    kitchenOrderById: (id: string | number) => `/food/vendor/kitchen/orders/${id}`,
+    floors: '/food/vendor/floors',
+    tables: '/food/vendor/tables',
+    openCheck: (tableId: string | number) => `/food/vendor/tables/${tableId}/open-check`,
+    tableItems: (tableId: string | number) => `/food/vendor/tables/${tableId}/items`,
+    settle: (tableId: string | number) => `/food/vendor/tables/${tableId}/settle`,
+    posOrders: '/food/vendor/pos/orders',
+    reservations: '/food/vendor/reservations',
+    staff: '/food/vendor/staff',
+    shiftsOpen: '/food/vendor/shifts/open',
   },
 } as const;

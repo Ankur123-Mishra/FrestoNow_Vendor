@@ -21,17 +21,20 @@ export function VendorDetailsScreen() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [shopname, setShopname] = useState('');
+  const [gstNo, setGstNo] = useState('');
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
 
   const load = useCallback(async () => {
     try {
-      const res = await vendorService.getMe();
+      const res = await vendorService.getStoreProfile();
       const data = (unwrapPayload(res.data) || {}) as VendorDetails;
       setName(String(data.name || user?.name || ''));
       setShopname(String(data.shopname || user?.shopname || ''));
+      setGstNo(String(data.gst_no || ''));
     } catch {
       setName(String(user?.name || ''));
       setShopname(String(user?.shopname || ''));
+      setGstNo('');
     } finally {
       setLoading(false);
     }
@@ -54,7 +57,11 @@ export function VendorDetailsScreen() {
     }
     setSaving(true);
     try {
-      await vendorService.updateAccount({ name: name.trim(), shopname: shopname.trim() });
+      await vendorService.updateAccount({
+        name: name.trim(),
+        shopname: shopname.trim(),
+        gst_no: gstNo.trim() || undefined,
+      });
       setUser({ ...(user || {}), name: name.trim(), shopname: shopname.trim() } as VendorUser);
       showToast('Account updated', 'success');
     } catch (error) {
@@ -77,6 +84,14 @@ export function VendorDetailsScreen() {
       <AppHeader title="Shop details" subtitle="Update name and shop name" showBack />
       <AppInput label="Owner name" value={name} onChangeText={setName} error={errors.name} />
       <AppInput label="Shop name" value={shopname} onChangeText={setShopname} error={errors.shopname} />
+      <AppInput
+        label="GST number"
+        value={gstNo}
+        onChangeText={setGstNo}
+        autoCapitalize="characters"
+        placeholder="22AAAAA0000A1Z5"
+        optional
+      />
       <AppButton title="Save account" onPress={onSubmit} loading={saving} style={styles.btn} />
     </Screen>
   );

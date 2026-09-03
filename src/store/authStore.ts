@@ -3,8 +3,9 @@ import { STORAGE_KEYS } from '@/config/storageKeys';
 import { storage } from '@/utils/storage';
 import { tokenBridge } from '@/api/tokenBridge';
 import { authService, vendorService } from '@/api/services';
-import { extractAccount, extractToken, extractUser, getErrorMessage } from '@/utils/apiHelpers';
+import { extractAccount, extractUser, extractToken, getErrorMessage, asArray, unwrapPayload } from '@/utils/apiHelpers';
 import { pickString } from '@/utils/format';
+import { useModuleStore } from '@/store/moduleStore';
 import type { LoginPayload, RegisterPayload, VendorAccount, VendorUser } from '@/types';
 
 interface AuthState {
@@ -35,6 +36,10 @@ function mergeVendorUser(
 
   const name = pickString(account?.name, meUser?.name, current?.name);
   const shopname = pickString(account?.shopname, meUser?.shopname, current?.shopname);
+  const services =
+    (Array.isArray(account?.services) ? account?.services : undefined) ||
+    meUser?.services ||
+    current?.services;
 
   return {
     ...(current || {}),
@@ -46,6 +51,15 @@ function mergeVendorUser(
     phone: pickString(account?.phone, meUser?.phone, current?.phone) || undefined,
     role: pickString(account?.role, meUser?.role, current?.role) || undefined,
     status: pickString(account?.status, meUser?.status, current?.status) || undefined,
+    moduleType: pickString(
+      meUser?.moduleType,
+      meUser?.activeModule,
+      account?.moduleType as string | undefined,
+      current?.moduleType,
+    ) || undefined,
+    activeModule: pickString(meUser?.activeModule, current?.activeModule) || undefined,
+    services: Array.isArray(services) ? services.map(String) : services,
+    isOnline: (meUser?.isOnline ?? account?.isOnline ?? current?.isOnline) as boolean | undefined,
   };
 }
 
@@ -55,6 +69,30 @@ async function loadAccount(): Promise<VendorAccount | null> {
     return extractAccount(res.data);
   } catch {
     return null;
+  }
+}
+
+function normalizeServiceList(raw: unknown): string[] {
+  return asArray(raw)
+    .map(item => {
+      if (typeof item === 'string') {
+        return item;
+      }
+      if (item && typeof item === 'object') {
+        const obj = item as Record<string, unknown>;
+        return String(obj.moduleType ?? obj.service ?? obj.name ?? obj.type ?? '');
+      }
+      return String(item ?? '');
+    })
+    .filter(Boolean);
+}
+
+async function loadServices(): Promise<string[]> {
+  try {
+    const res = await vendorService.getServices();
+    return normalizeServiceList(unwrapPayload(res.data));
+  } catch {
+    return [];
   }
 }
 
@@ -71,6 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     ]);
     tokenBridge.set(token);
     tokenBridge.setUnauthorizedHandler(() => get().logout());
+    await useModuleStore.getState().hydrate(user);
     set({ token, user, hydrated: true });
   },
 
@@ -85,14 +124,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       let user = (extractUser(body) || { email: payload.email }) as VendorUser;
       tokenBridge.set(token);
-      const [meResult, account] = await Promise.all([
+      const [meResult, account, services] = await Promise.all([
         authService.getMe().catch(() => null),
         loadAccount(),
+        loadServices(),
       ]);
       const meUser = meResult ? (extractUser(meResult.data) as VendorUser | null) : null;
+      if (services.length) {
+        user = { ...user, services };
+        if (!user.moduleType) {
+          user.moduleType = services[0];
+        }
+      }
       user = mergeVendorUser(user, meUser, account) || user;
       await storage.set(STORAGE_KEYS.AUTH_TOKEN, token);
       await persistUser(user);
+      await useModuleStore.getState().syncFromUser(user);
       set({ token, user, loading: false });
     } catch (error) {
       set({ loading: false });
@@ -104,6 +151,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true });
     try {
       const response = await authService.register(payload);
+      if (payload.moduleType) {
+        await storage.set(STORAGE_KEYS.ACTIVE_MODULE, payload.moduleType);
+      }
       set({ loading: false });
       const message =
         (response.data as { message?: string })?.message ||
@@ -117,14 +167,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   refreshProfile: async () => {
     try {
-      const [meResult, account] = await Promise.all([
+      const [meResult, account, services] = await Promise.all([
         authService.getMe().catch(() => null),
         loadAccount(),
+        loadServices(),
       ]);
       const meUser = meResult ? (extractUser(meResult.data) as VendorUser | null) : null;
-      const user = mergeVendorUser(get().user, meUser, account);
+      const seeded = services.length
+        ? { ...(get().user || {}), services, moduleType: get().user?.moduleType || services[0] }
+        : get().user;
+      const user = mergeVendorUser(seeded, meUser, account);
       if (user) {
         await persistUser(user);
+        await useModuleStore.getState().syncFromUser(user);
         set({ user });
       }
     } catch {
@@ -137,6 +192,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await Promise.all([
       storage.remove(STORAGE_KEYS.AUTH_TOKEN),
       storage.remove(STORAGE_KEYS.AUTH_USER),
+      useModuleStore.getState().reset(),
     ]);
     set({ token: null, user: null, loading: false });
   },

@@ -1,13 +1,13 @@
 import { apiClient } from '@/api/client';
 import { endpoints } from '@/api/endpoints';
-import { MODULE_TYPE } from '@/config/constants';
+import { getActiveModule } from '@/store/moduleStore';
 import type { ReturnAction } from '@/config/constants';
 import type { PosRefundScope } from '@/config/constants';
 
 export const returnService = {
   getAll() {
     return apiClient.get(endpoints.returns.list, {
-      params: { moduleType: MODULE_TYPE },
+      params: { moduleType: getActiveModule() },
     });
   },
 

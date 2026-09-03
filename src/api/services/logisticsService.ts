@@ -10,4 +10,8 @@ export const logisticsService = {
   createShiprocketShipment(orderId: string | number, payload: ShiprocketPayload) {
     return apiClient.post(endpoints.orders.shiprocket(orderId), payload);
   },
+
+  getDeliveryTrack(orderId: string | number) {
+    return apiClient.get(endpoints.delivery.track(orderId));
+  },
 };

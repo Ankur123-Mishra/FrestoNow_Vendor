@@ -36,6 +36,17 @@ export function asArray<T = JsonObject>(raw: unknown): T[] {
     'coupons',
     'inventory',
     'services',
+    'sections',
+    'modifierGroups',
+    'floors',
+    'tables',
+    'reservations',
+    'staff',
+    'slots',
+    'templates',
+    'shifts',
+    'kitchenOrders',
+    'menu',
   ];
   for (const key of keys) {
     const value = (nested as JsonObject)?.[key] ?? obj[key];

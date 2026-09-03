@@ -8,3 +8,5 @@ export { logisticsService } from './logisticsService';
 export { walletService } from './walletService';
 export { inventoryService } from './inventoryService';
 export { couponService } from './couponService';
+export { slotService } from './slotService';
+export { foodService } from './foodService';

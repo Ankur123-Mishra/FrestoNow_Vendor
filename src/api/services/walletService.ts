@@ -14,14 +14,22 @@ export const walletService = {
     return apiClient.get(endpoints.wallet.balance);
   },
 
-  getHistory() {
-    return apiClient.get(endpoints.wallet.history);
+  async getHistory() {
+    try {
+      return await apiClient.get(endpoints.finance.ledger);
+    } catch {
+      return apiClient.get(endpoints.wallet.history);
+    }
   },
 
-  requestPayout(amount: number, reason: string) {
+  getLedger() {
+    return apiClient.get(endpoints.finance.ledger);
+  },
+
+  requestPayout(amount: number, reason?: string) {
     return apiClient.post(
       endpoints.finance.payouts,
-      { amount, reason },
+      reason ? { amount, reason } : { amount },
       { headers: { 'Idempotency-Key': createIdempotencyKey() } },
     );
   },

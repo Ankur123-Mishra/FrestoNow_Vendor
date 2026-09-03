@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Screen } from '@/components/layout/Screen';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { AppInput } from '@/components/ui/AppInput';
-import { VENDOR_SERVICES } from '@/config/constants';
+import { getModuleMeta } from '@/config/modules';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/store/toastStore';
 import { colors, radius } from '@/theme';
 import { isValidEmail, isValidPhone, required } from '@/utils/validators';
-import type { AuthNavigation } from '@/types';
+import type { AuthNavigation, RegisterRoute } from '@/types';
 
 export function RegisterScreen() {
   const navigation = useNavigation<AuthNavigation>();
+  const route = useRoute<RegisterRoute>();
+  const moduleType = route.params?.moduleType;
+  const meta = getModuleMeta(moduleType);
   const register = useAuthStore(s => s.register);
   const loading = useAuthStore(s => s.loading);
   const showToast = useToastStore(s => s.show);
@@ -30,10 +33,19 @@ export function RegisterScreen() {
   const [bankIfsc, setBankIfsc] = useState('');
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
 
+  useEffect(() => {
+    if (!moduleType) {
+      navigation.replace('ModuleSelect');
+    }
+  }, [moduleType, navigation]);
+
   const onSubmit = async () => {
+    if (!moduleType) {
+      return;
+    }
     const next = {
       name: required(name, 'Name') || undefined,
-      shopname: required(shopname, 'Shop name') || undefined,
+      shopname: required(shopname, meta.shopLabel) || undefined,
       email: required(email, 'Email') || (!isValidEmail(email) ? 'Enter a valid email' : undefined),
       phone: required(phone, 'Phone') || (!isValidPhone(phone) ? 'Enter a 10-digit phone' : undefined),
       password:
@@ -58,7 +70,8 @@ export function RegisterScreen() {
         email: email.trim(),
         phone: phone.trim(),
         password,
-        services: [...VENDOR_SERVICES],
+        moduleType,
+        services: [moduleType],
         pickup_location: pickupLocation.trim(),
         pickup_pin_code: pickupPin.trim(),
         bank_name: bankName.trim(),
@@ -72,17 +85,24 @@ export function RegisterScreen() {
     }
   };
 
+  if (!moduleType) {
+    return null;
+  }
+
   return (
     <Screen scroll>
-      <AppHeader title="Create account" subtitle="E-commerce vendor signup" showBack />
+      <AppHeader title={meta.registerTitle} subtitle={meta.registerSubtitle} showBack />
       <View style={styles.card}>
+        <View style={styles.moduleChip}>
+          <Text style={styles.moduleChipText}>{meta.label}</Text>
+        </View>
         <AppInput label="Full name" value={name} onChangeText={setName} error={errors.name} placeholder="Jane Doe" />
         <AppInput
-          label="Shop name"
+          label={meta.shopLabel}
           value={shopname}
           onChangeText={setShopname}
           error={errors.shopname}
-          placeholder="Jane E-commerce Store"
+          placeholder={meta.shopLabel}
         />
         <AppInput
           label="Email"
@@ -149,8 +169,7 @@ export function RegisterScreen() {
           error={errors.bankIfsc}
           placeholder="SBIN0001234"
         />
-        <Text style={styles.service}>Service: ECOMMERCE</Text>
-        <AppButton title="Register as vendor" onPress={onSubmit} loading={loading} />
+        <AppButton title={`Register as ${meta.shortLabel} vendor`} onPress={onSubmit} loading={loading} />
         <Pressable onPress={() => navigation.navigate('Login')} style={styles.linkWrap}>
           <Text style={styles.link}>Already registered? Login</Text>
         </Pressable>
@@ -167,7 +186,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  service: { color: colors.muted, marginBottom: 14, fontWeight: '600' },
+  moduleChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.brand[50],
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.brand[200],
+  },
+  moduleChipText: { color: colors.brand[800], fontWeight: '800', fontSize: 12 },
   linkWrap: { marginTop: 16, alignItems: 'center' },
   link: { color: colors.brand[700], fontWeight: '700' },
 });

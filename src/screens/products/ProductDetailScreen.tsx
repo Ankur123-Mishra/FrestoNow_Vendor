@@ -8,8 +8,9 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { AppLoader } from '@/components/ui/AppLoader';
 import { productService } from '@/api/services';
+import { useModuleStore } from '@/store/moduleStore';
 import { useToastStore } from '@/store/toastStore';
-import { colors, radius, shadows } from '@/theme';
+import { colors, radius } from '@/theme';
 import { getErrorMessage, unwrapPayload } from '@/utils/apiHelpers';
 import { formatCurrency, pickNumber, pickString, toDisplayString } from '@/utils/format';
 import { resolveMediaUrl } from '@/utils/media';
@@ -141,6 +142,7 @@ export function ProductDetailScreen() {
   const navigation = useNavigation<AppNavigation>();
   const { params } = useRoute<ProductDetailRoute>();
   const showToast = useToastStore(s => s.show);
+  const isFood = useModuleStore(s => s.activeModule) === 'FOOD';
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
@@ -246,12 +248,22 @@ export function ProductDetailScreen() {
         ? 'specs'
         : hasOptions
           ? 'options'
-          : 'details';
+          : isFood
+            ? 'food'
+            : 'details';
+  const food = (product.foodProfile || {}) as Record<string, unknown>;
+  const foodFacts = [
+    { label: 'Diet', value: pickString(food.dietType, food.dietaryType) },
+    { label: 'Cuisine', value: pickString(food.cuisine) },
+    { label: 'Spice', value: pickString(food.spiceLevel) },
+    { label: 'Prep', value: food.prepTimeMins != null ? `${food.prepTimeMins} mins` : '' },
+    { label: 'Serves', value: food.serves != null ? String(food.serves) : '' },
+  ].filter(item => item.value);
 
   return (
     <Screen>
       <AppHeader
-        title="Product"
+        title={isFood ? 'Dish' : 'Product'}
         showBack
         right={
           <Pressable
@@ -265,7 +277,7 @@ export function ProductDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.gallery}>
           {currentImage ? (
-            <Image source={{ uri: currentImage }} style={styles.heroImage} resizeMode="cover" />
+            <Image source={{ uri: currentImage }} style={styles.heroImage} resizeMode="contain" />
           ) : (
             <View style={styles.placeholder}>
               <ImageOff size={32} color={colors.brand[600]} />
@@ -329,6 +341,13 @@ export function ProductDetailScreen() {
               <Fact label="Min. order" value={String(minQty)} />
               <Fact label="Max. order" value={maxQty != null ? String(maxQty) : 'No limit'} />
             </View>
+            {isFood && foodFacts.length ? (
+              <View style={styles.facts}>
+                {foodFacts.map(item => (
+                  <Fact key={item.label} label={item.label} value={item.value} />
+                ))}
+              </View>
+            ) : null}
             {tags.length ? (
               <View style={styles.pillWrap}>
                 {tags.map(item => (
@@ -428,7 +447,7 @@ export function ProductDetailScreen() {
         </View>
 
         <AppButton
-          title={isActive ? 'Deactivate product' : 'Activate product'}
+          title={isActive ? (isFood ? 'Deactivate dish' : 'Deactivate product') : isFood ? 'Activate dish' : 'Activate product'}
           variant="outline"
           loading={busy}
           onPress={toggleStatus}
@@ -451,13 +470,12 @@ const styles = StyleSheet.create({
   },
   editText: { color: colors.white, fontWeight: '700', fontSize: 13 },
   gallery: {
-    height: 260,
-    borderRadius: radius.xl,
-    backgroundColor: colors.brand[50],
+    height: 340,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceMuted,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.sm,
   },
   heroImage: { width: '100%', height: '100%' },
   placeholder: { alignItems: 'center', gap: 8 },

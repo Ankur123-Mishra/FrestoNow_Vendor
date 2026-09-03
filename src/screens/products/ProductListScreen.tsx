@@ -8,6 +8,8 @@ import { AppEmpty } from '@/components/ui/AppEmpty';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { AppLoader } from '@/components/ui/AppLoader';
 import { productService } from '@/api/services';
+import { getModuleMeta } from '@/config/modules';
+import { useModuleStore } from '@/store/moduleStore';
 import { useToastStore } from '@/store/toastStore';
 import { colors, radius } from '@/theme';
 import { asArray, getEntityId, getErrorMessage, unwrapPayload } from '@/utils/apiHelpers';
@@ -18,6 +20,8 @@ import type { AppNavigation, Product } from '@/types';
 export function ProductListScreen() {
   const navigation = useNavigation<AppNavigation>();
   const showToast = useToastStore(s => s.show);
+  const activeModule = useModuleStore(s => s.activeModule);
+  const meta = getModuleMeta(activeModule);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,11 +39,11 @@ export function ProductListScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [showToast]);
+  }, [showToast, activeModule]);
 
   useFocusEffect(
     useCallback(() => {
-      load(true);
+      load();
     }, [load]),
   );
 
@@ -54,7 +58,7 @@ export function ProductListScreen() {
   return (
     <Screen>
       <AppHeader
-        title="Products"
+        title={meta.catalogLabel}
         subtitle={`${products.length} listed`}
         right={
           <Pressable onPress={() => navigation.navigate('ProductForm')} style={styles.addBtn}>
@@ -73,9 +77,11 @@ export function ProductListScreen() {
         ListEmptyComponent={
           <AppEmpty
             icon={SearchX}
-            title="No products yet"
-            subtitle="Add your first product to start selling."
-            actionLabel="Add product"
+            title={`No ${meta.catalogLabel.toLowerCase()} yet`}
+            subtitle={`Add your first ${
+              activeModule === 'GROCERY' ? 'grocery item' : activeModule === 'FOOD' ? 'dish' : 'product'
+            } to start selling.`}
+            actionLabel={`Add ${meta.catalogLabel.toLowerCase().slice(0, -1)}`}
             onAction={() => navigation.navigate('ProductForm')}
           />
         }

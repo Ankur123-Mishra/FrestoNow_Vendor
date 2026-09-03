@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/client';
 import { endpoints } from '@/api/endpoints';
-import { MODULE_TYPE } from '@/config/constants';
+import { getActiveModule } from '@/store/moduleStore';
 import type { PickedImage, ProductPayload } from '@/types';
 
 function appendFile(form: FormData, field: string, image: PickedImage, fallbackName: string) {
@@ -32,7 +32,7 @@ function appendProductForm(
   form.append('name', payload.name);
   form.append('categoryId', payload.categoryId);
   if (includeModuleType) {
-    form.append('moduleType', MODULE_TYPE);
+    form.append('moduleType', getActiveModule());
   }
   appendIfValue(form, 'brandId', payload.brandId);
   appendIfValue(form, 'description', payload.description);
@@ -82,6 +82,7 @@ export const productService = {
       method: 'POST',
       url,
       payload,
+      moduleType: getActiveModule(),
       variants: payload.variants,
     });
     try {
@@ -128,7 +129,7 @@ export const productService = {
   getMine(params?: { is_active?: boolean; limit?: number }) {
     return apiClient.get(endpoints.catalog.products, {
       params: {
-        moduleType: MODULE_TYPE,
+        moduleType: getActiveModule(),
         limit: params?.limit ?? 50,
         ...(params?.is_active != null ? { is_active: params.is_active } : {}),
       },
@@ -137,7 +138,7 @@ export const productService = {
 
   getById(id: string | number) {
     return apiClient.get(endpoints.catalog.productById(id), {
-      params: { moduleType: MODULE_TYPE },
+      params: { moduleType: getActiveModule() },
     });
   },
 

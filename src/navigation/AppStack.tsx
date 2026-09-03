@@ -11,6 +11,16 @@ import { InventoryListScreen } from '@/screens/inventory/InventoryListScreen';
 import { InventoryEditScreen } from '@/screens/inventory/InventoryEditScreen';
 import { CouponListScreen } from '@/screens/coupons/CouponListScreen';
 import { CouponFormScreen } from '@/screens/coupons/CouponFormScreen';
+import { DeliverySlotsScreen } from '@/screens/grocery/DeliverySlotsScreen';
+import { ModifierGroupsScreen } from '@/screens/food/ModifierGroupsScreen';
+import { KitchenOrderDetailScreen } from '@/screens/food/KitchenOrderDetailScreen';
+import { FloorsTablesScreen } from '@/screens/food/FloorsTablesScreen';
+import { TableCheckScreen } from '@/screens/food/TableCheckScreen';
+import { PosOrderScreen } from '@/screens/food/PosOrderScreen';
+import { ReservationsScreen } from '@/screens/food/ReservationsScreen';
+import { StaffShiftsScreen } from '@/screens/food/StaffShiftsScreen';
+import { MenuSectionsScreen } from '@/screens/food/MenuSectionsScreen';
+import { DeliveryTrackingScreen } from '@/screens/food/DeliveryTrackingScreen';
 import { colors } from '@/theme';
 import type { AppStackParamList } from '@/types';
 
@@ -35,6 +45,16 @@ export function AppStack() {
       <Stack.Screen name="InventoryEdit" component={InventoryEditScreen} />
       <Stack.Screen name="Coupons" component={CouponListScreen} />
       <Stack.Screen name="CouponForm" component={CouponFormScreen} />
+      <Stack.Screen name="DeliverySlots" component={DeliverySlotsScreen} />
+      <Stack.Screen name="ModifierGroups" component={ModifierGroupsScreen} />
+      <Stack.Screen name="KitchenOrderDetail" component={KitchenOrderDetailScreen} />
+      <Stack.Screen name="FloorsTables" component={FloorsTablesScreen} />
+      <Stack.Screen name="TableCheck" component={TableCheckScreen} />
+      <Stack.Screen name="PosOrder" component={PosOrderScreen} />
+      <Stack.Screen name="Reservations" component={ReservationsScreen} />
+      <Stack.Screen name="StaffShifts" component={StaffShiftsScreen} />
+      <Stack.Screen name="MenuSections" component={MenuSectionsScreen} />
+      <Stack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
     </Stack.Navigator>
   );
 }

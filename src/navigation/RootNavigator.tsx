@@ -6,10 +6,12 @@ import { AppStack } from '@/navigation/AppStack';
 import { AppLoader } from '@/components/ui/AppLoader';
 import { ToastHost } from '@/components/ui/ToastHost';
 import { useAuthStore } from '@/store/authStore';
+import { useModuleStore } from '@/store/moduleStore';
 import { colors } from '@/theme';
 
 export function RootNavigator() {
   const hydrated = useAuthStore(s => s.hydrated);
+  const moduleHydrated = useModuleStore(s => s.hydrated);
   const token = useAuthStore(s => s.token);
   const hydrate = useAuthStore(s => s.hydrate);
 
@@ -17,7 +19,7 @@ export function RootNavigator() {
     hydrate();
   }, [hydrate]);
 
-  if (!hydrated) {
+  if (!hydrated || !moduleHydrated) {
     return (
       <View style={styles.boot}>
         <AppLoader label="Starting FrestoNow Vendor" />

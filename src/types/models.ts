@@ -11,6 +11,11 @@ export interface VendorUser {
   isOnline?: boolean;
   status?: string;
   services?: string[];
+  modules?: string[];
+  vendorServices?: string[];
+  moduleType?: string;
+  activeModule?: string;
+  activeModuleType?: string;
   [key: string]: unknown;
 }
 
@@ -20,6 +25,7 @@ export interface VendorDetails {
   shopname?: string;
   email?: string;
   phone?: string;
+  gst_no?: string;
   pickup_location?: string;
   pickup_pin_code?: string;
   bank_name?: string;
@@ -46,6 +52,9 @@ export interface VendorAccount {
   bank_ifsc?: string | null;
   status?: string | null;
   role?: string | null;
+  isOnline?: boolean | null;
+  moduleType?: string | null;
+  services?: string[] | null;
   walletBalance?: number | string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -134,6 +143,7 @@ export interface ProductVariantInput {
   sellingprice: number;
   originalPrice?: number;
   costPrice?: number;
+  variantName?: string;
   weight?: string | number;
   weightUnit?: string;
   length?: string | number;
@@ -167,6 +177,8 @@ export interface Product {
   images?: string[];
   price?: number;
   sellingPrice?: number;
+  foodProfile?: Record<string, unknown> | null;
+  groceryProfile?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 
@@ -268,6 +280,22 @@ export interface OrderStatusHistory {
   [key: string]: unknown;
 }
 
+export interface OrderTaxSnapshot {
+  subtotal?: number | string;
+  taxAmount?: number | string;
+  gstOnItems?: number | string;
+  gstOnDelivery?: number | string;
+  gstOnPackaging?: number | string;
+  gstOnPlatformFee?: number | string;
+  smallOrderFee?: number | string;
+  itemGstPercent?: number | string;
+  deliveryGstPercent?: number | string;
+  platformGstPercent?: number | string;
+  packagingGstPercent?: number | string;
+  moduleType?: string;
+  [key: string]: unknown;
+}
+
 export interface Order {
   id: number | string;
   orderNumber?: string;
@@ -280,12 +308,13 @@ export interface Order {
   created_at?: string;
   customerName?: string;
   user?: OrderCustomer;
+  guestCustomer?: OrderCustomer | null;
   userId?: number | string;
   fulfillmentType?: string;
   orderChannel?: string;
   paymentMode?: string;
   paymentSource?: string;
-  paymentOrderId?: string;
+  paymentOrderId?: string | null;
   notes?: string | null;
   couponCode?: string | null;
   discount?: number | string | null;
@@ -294,6 +323,19 @@ export interface Order {
   packagingFee?: number | string | null;
   platformFee?: number | string | null;
   tipAmount?: number | string | null;
+  serviceCharge?: number | string | null;
+  taxSnapshot?: OrderTaxSnapshot | null;
+  slotStart?: string | null;
+  slotEnd?: string | null;
+  etaMins?: number | string | null;
+  distanceKm?: number | string | null;
+  rejectionReason?: string | null;
+  prepTimeMins?: number | string | null;
+  acceptedAt?: string | null;
+  tokenNumber?: number | string | null;
+  tableNumber?: string | null;
+  waiterName?: string | null;
+  covers?: number | null;
   address?: OrderAddress | null;
   statusHistories?: OrderStatusHistory[];
   items?: OrderItem[];
@@ -420,12 +462,122 @@ export interface RegisterPayload {
   email: string;
   phone: string;
   password: string;
+  moduleType: string;
   services: string[];
   pickup_location: string;
   pickup_pin_code: string;
   bank_name: string;
   bank_account_no: string;
   bank_ifsc: string;
+}
+
+export interface FoodSection {
+  id: number | string;
+  name?: string;
+  title?: string;
+  position?: number;
+  items?: FoodMenuItem[];
+  products?: FoodMenuItem[];
+  [key: string]: unknown;
+}
+
+export interface FoodMenuItem {
+  id: number | string;
+  name?: string;
+  price?: number | string;
+  sellingPrice?: number | string;
+  isAvailable?: boolean;
+  [key: string]: unknown;
+}
+
+export interface FoodModifierGroup {
+  id: number | string;
+  name?: string;
+  minSelect?: number;
+  maxSelect?: number;
+  [key: string]: unknown;
+}
+
+export interface FoodFloor {
+  id: number | string;
+  name?: string;
+  tables?: FoodTable[];
+  [key: string]: unknown;
+}
+
+export interface FoodTable {
+  id: number | string;
+  name?: string;
+  capacity?: number;
+  floorId?: number | string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface FoodReservation {
+  id: number | string;
+  customerName?: string;
+  pax?: number;
+  time?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface FoodStaff {
+  id: number | string;
+  name?: string;
+  role?: string;
+  phone?: string;
+  [key: string]: unknown;
+}
+
+export interface DeliverySlot {
+  id: number | string;
+  storeProfileId?: number | string;
+  moduleType?: string;
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  capacity?: number;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface SlotTemplatePayload {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  isActive: boolean;
+}
+
+export interface KitchenOrder {
+  id: number | string;
+  status?: string;
+  tableName?: string;
+  fulfillmentType?: string;
+  items?: OrderItem[];
+  orderItems?: OrderItem[];
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface DeliveryTrack {
+  orderId?: number | string;
+  job?: {
+    id?: number | string;
+    status?: string;
+    pickupOtp?: string | null;
+  } | null;
+  rider?: {
+    id?: number | string;
+    name?: string | null;
+    phone?: string | null;
+    status?: string | null;
+  } | null;
 }
 
 export interface LoginPayload {

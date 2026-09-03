@@ -2,9 +2,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp, RouteProp } from '@react-navigation/native';
 
+import type { ModuleType } from '@/config/constants';
+
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
+  ModuleSelect: undefined;
+  Register: { moduleType: ModuleType };
 };
 
 export type MainTabParamList = {
@@ -27,6 +30,16 @@ export type AppStackParamList = {
   InventoryEdit: { inventoryId: string | number };
   Coupons: undefined;
   CouponForm: { couponId?: string | number } | undefined;
+  DeliverySlots: undefined;
+  ModifierGroups: undefined;
+  KitchenOrderDetail: { orderId: string | number };
+  FloorsTables: undefined;
+  TableCheck: { tableId: string | number; tableName?: string };
+  PosOrder: undefined;
+  Reservations: undefined;
+  StaffShifts: undefined;
+  MenuSections: undefined;
+  DeliveryTracking: undefined;
 };
 
 export type RootStackParamList = AuthStackParamList & AppStackParamList;
@@ -43,3 +56,6 @@ export type ProductDetailRoute = RouteProp<AppStackParamList, 'ProductDetail'>;
 export type OrderDetailRoute = RouteProp<AppStackParamList, 'OrderDetail'>;
 export type InventoryEditRoute = RouteProp<AppStackParamList, 'InventoryEdit'>;
 export type CouponFormRoute = RouteProp<AppStackParamList, 'CouponForm'>;
+export type KitchenOrderDetailRoute = RouteProp<AppStackParamList, 'KitchenOrderDetail'>;
+export type TableCheckRoute = RouteProp<AppStackParamList, 'TableCheck'>;
+export type RegisterRoute = RouteProp<AuthStackParamList, 'Register'>;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from '@/screens/auth/LoginScreen';
+import { ModuleSelectScreen } from '@/screens/auth/ModuleSelectScreen';
 import { RegisterScreen } from '@/screens/auth/RegisterScreen';
 import { colors } from '@/theme';
 import type { AuthStackParamList } from '@/types';
@@ -16,6 +17,7 @@ export function AuthStack() {
         animation: 'slide_from_right',
       }}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="ModuleSelect" component={ModuleSelectScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
     </Stack.Navigator>
   );

@@ -2,18 +2,22 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
+  ChefHat,
   Home,
   Package,
   ShoppingBag,
   UserRound,
+  UtensilsCrossed,
   Wallet,
 } from 'lucide-react-native';
 import { DashboardScreen } from '@/screens/dashboard/DashboardScreen';
-import { ProductListScreen } from '@/screens/products/ProductListScreen';
-import { OrderListScreen } from '@/screens/orders/OrderListScreen';
+import { CatalogTabScreen } from '@/screens/catalog/CatalogTabScreen';
+import { OrdersTabScreen } from '@/screens/orders/OrdersTabScreen';
 import { WalletScreen } from '@/screens/wallet/WalletScreen';
 import { MoreScreen } from '@/screens/profile/MoreScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getModuleMeta } from '@/config/modules';
+import { useModuleStore } from '@/store/moduleStore';
 import { colors } from '@/theme';
 import type { MainTabParamList } from '@/types';
 
@@ -39,8 +43,16 @@ function ProductsIcon({ focused, color }: { focused: boolean; color: string }) {
   return <TabIcon focused={focused} color={color} icon={Package} />;
 }
 
+function MenuIcon({ focused, color }: { focused: boolean; color: string }) {
+  return <TabIcon focused={focused} color={color} icon={UtensilsCrossed} />;
+}
+
 function OrdersIcon({ focused, color }: { focused: boolean; color: string }) {
   return <TabIcon focused={focused} color={color} icon={ShoppingBag} />;
+}
+
+function KitchenIcon({ focused, color }: { focused: boolean; color: string }) {
+  return <TabIcon focused={focused} color={color} icon={ChefHat} />;
 }
 
 function WalletIcon({ focused, color }: { focused: boolean; color: string }) {
@@ -53,6 +65,10 @@ function ProfileIcon({ focused, color }: { focused: boolean; color: string }) {
 
 export function MainTabs() {
   const insets = useSafeAreaInsets();
+  const activeModule = useModuleStore(s => s.activeModule);
+  const meta = getModuleMeta(activeModule);
+  const isFood = activeModule === 'FOOD';
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -74,13 +90,19 @@ export function MainTabs() {
       />
       <Tab.Screen
         name="Products"
-        component={ProductListScreen}
-        options={{ tabBarLabel: 'Products', tabBarIcon: ProductsIcon }}
+        component={CatalogTabScreen}
+        options={{
+          tabBarLabel: meta.catalogTab,
+          tabBarIcon: isFood ? MenuIcon : ProductsIcon,
+        }}
       />
       <Tab.Screen
         name="Orders"
-        component={OrderListScreen}
-        options={{ tabBarLabel: 'Orders', tabBarIcon: OrdersIcon }}
+        component={OrdersTabScreen}
+        options={{
+          tabBarLabel: meta.ordersTab,
+          tabBarIcon: isFood ? KitchenIcon : OrdersIcon,
+        }}
       />
       <Tab.Screen
         name="Wallet"
