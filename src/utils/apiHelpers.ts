@@ -42,6 +42,7 @@ export function asArray<T = JsonObject>(raw: unknown): T[] {
     'tables',
     'reservations',
     'staff',
+    'waiters',
     'slots',
     'templates',
     'shifts',

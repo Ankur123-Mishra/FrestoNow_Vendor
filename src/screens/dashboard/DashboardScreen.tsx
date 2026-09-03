@@ -1,12 +1,16 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
+  Armchair,
   Ban,
+  Bike,
+  CalendarClock,
   CircleCheck,
   IndianRupee,
   Percent,
   ShoppingBag,
+  Store,
   TrendingUp,
 } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
@@ -20,13 +24,14 @@ import { getModuleMeta } from '@/config/modules';
 import { useAuthStore } from '@/store/authStore';
 import { getActiveModule, useModuleStore } from '@/store/moduleStore';
 import { useToastStore } from '@/store/toastStore';
-import { colors } from '@/theme';
+import { colors, radius } from '@/theme';
 import { getErrorMessage, mapDashboardStats } from '@/utils/apiHelpers';
 import { formatCurrency, formatDate, pickString } from '@/utils/format';
 import { useResponsive } from '@/utils/responsive';
-import type { DashboardStats } from '@/types';
+import type { AppNavigation, DashboardStats } from '@/types';
 
 export function DashboardScreen() {
+  const navigation = useNavigation<AppNavigation>();
   const user = useAuthStore(s => s.user);
   const refreshProfile = useAuthStore(s => s.refreshProfile);
   const showToast = useToastStore(s => s.show);
@@ -133,37 +138,33 @@ export function DashboardScreen() {
           />
         </View>
 
-        {/* <SectionTitle title="By status" />
-        <AppCard style={styles.sectionCard}>
-          {stats?.byStatus.length ? (
-            stats.byStatus.map((item, index) => (
-              <View
-                key={`${item.status}-${index}`}
-                style={[styles.row, index < stats.byStatus.length - 1 && styles.rowDivider]}>
-                <AppBadge label={titleCaseStatus(item.status)} />
-                <Text style={styles.rowValue}>{item.count}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.empty}>No status data</Text>
-          )}
-        </AppCard>
-
-        <SectionTitle title="By channel" />
-        <AppCard style={styles.sectionCard}>
-          {stats?.byChannel.length ? (
-            stats.byChannel.map((item, index) => (
-              <View
-                key={`${item.channel}-${index}`}
-                style={[styles.row, index < stats.byChannel.length - 1 && styles.rowDivider]}>
-                <Text style={styles.rowLabel}>{titleCaseStatus(item.channel)}</Text>
-                <Text style={styles.rowValue}>{item.count}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.empty}>No channel data</Text>
-          )}
-        </AppCard> */}
+        {activeModule === 'FOOD' ? (
+          <>
+            <SectionTitle title="Restaurant ops" />
+            <View style={styles.opsGrid}>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('FloorsTables')}>
+                <Armchair size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Tables & QR</Text>
+                <Text style={styles.opsMeta}>Floors, tables, dine-in</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('PosOrder')}>
+                <Store size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Counter POS</Text>
+                <Text style={styles.opsMeta}>Takeaway & delivery</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('DeliveryTracking')}>
+                <Bike size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Delivery</Text>
+                <Text style={styles.opsMeta}>Rider, OTP, live jobs</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('Reservations')}>
+                <CalendarClock size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Reservations</Text>
+                <Text style={styles.opsMeta}>Book and seat guests</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
 
         <SectionTitle title="Daily orders" />
         <AppCard style={styles.sectionCard}>
@@ -193,6 +194,20 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 32 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12 },
   gridWide: { gap: 14 },
+  opsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  opsCard: {
+    width: '47%',
+    flexGrow: 1,
+    minWidth: 140,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    gap: 6,
+  },
+  opsTitle: { fontWeight: '800', color: colors.text, fontSize: 14 },
+  opsMeta: { color: colors.muted, fontWeight: '600', fontSize: 12 },
   sectionCard: { marginBottom: 8, paddingVertical: 4 },
   dayRow: {
     flexDirection: 'row',

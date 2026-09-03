@@ -213,15 +213,15 @@ export function MoreScreen() {
               <View style={styles.divider} />
               <MenuRow
                 icon={Armchair}
-                title="Tables"
-                subtitle="Floors, tables and dine-in checks"
+                title="Tables & QR"
+                subtitle="Add floors, tables, guest QR and dine-in checks"
                 onPress={() => navigation.navigate('FloorsTables')}
               />
               <View style={styles.divider} />
               <MenuRow
                 icon={Store}
-                title="POS order"
-                subtitle="Direct takeaway or delivery ticket"
+                title="Counter POS"
+                subtitle="Takeaway, dine-in or delivery ticket"
                 onPress={() => navigation.navigate('PosOrder')}
               />
               <View style={styles.divider} />

@@ -94,7 +94,15 @@ export function KitchenOrdersScreen() {
 
   return (
     <Screen>
-      <AppHeader title="Kitchen" subtitle={`${counts.NEW} new · ${counts.PREPARING} cooking`} />
+      <AppHeader
+        title="Kitchen"
+        subtitle={`${counts.NEW} new · ${counts.PREPARING} cooking`}
+        right={
+          <Pressable onPress={() => navigation.navigate('DeliveryTracking')} style={styles.linkBtn}>
+            <Text style={styles.linkText}>Delivery</Text>
+          </Pressable>
+        }
+      />
       <View style={styles.filters}>
         {TABS.map(item => (
           <Chip
@@ -171,4 +179,11 @@ const styles = StyleSheet.create({
   meta: { color: colors.muted, marginTop: 4, fontWeight: '600', fontSize: 12 },
   items: { color: colors.textSecondary, marginTop: 6, fontWeight: '600', fontSize: 13 },
   customer: { color: colors.text, marginTop: 4, fontWeight: '700', fontSize: 13 },
+  linkBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand[50],
+  },
+  linkText: { color: colors.brand[700], fontWeight: '800', fontSize: 12 },
 });

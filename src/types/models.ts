@@ -498,9 +498,28 @@ export interface FoodModifierGroup {
   [key: string]: unknown;
 }
 
+export type FoodTableStatus = 'FREE' | 'OCCUPIED' | 'BILLING' | 'RESERVED' | 'CLEANING';
+
+export interface FoodTableReservation {
+  id?: number | string;
+  guestName?: string;
+  guestPhone?: string | null;
+  partySize?: number;
+  reservedAt?: string;
+  status?: string;
+  notes?: string | null;
+}
+
+export interface FoodTableQrInfo {
+  tableId: number | string;
+  url: string;
+  tableCode: string;
+}
+
 export interface FoodFloor {
   id: number | string;
   name?: string;
+  sortOrder?: number;
   tables?: FoodTable[];
   [key: string]: unknown;
 }
@@ -508,18 +527,31 @@ export interface FoodFloor {
 export interface FoodTable {
   id: number | string;
   name?: string;
+  code?: string;
   capacity?: number;
   floorId?: number | string;
-  status?: string;
+  status?: FoodTableStatus | string;
+  version?: number;
+  currentOrderId?: number | string | null;
+  qrGuestUrl?: string | null;
+  reservation?: FoodTableReservation | null;
+  openOrder?: Order | null;
   [key: string]: unknown;
 }
 
 export interface FoodReservation {
   id: number | string;
+  guestName?: string;
   customerName?: string;
+  guestPhone?: string | null;
+  partySize?: number;
   pax?: number;
+  reservedAt?: string;
   time?: string;
   status?: string;
+  notes?: string | null;
+  table?: { id?: number | string; code?: string } | null;
+  tableId?: number | string | null;
   [key: string]: unknown;
 }
 

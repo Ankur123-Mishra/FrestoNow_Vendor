@@ -11,9 +11,9 @@ import { logisticsService, orderService } from '@/api/services';
 import { useToastStore } from '@/store/toastStore';
 import { colors, radius } from '@/theme';
 import { asArray, getEntityId, getErrorMessage, unwrapPayload } from '@/utils/apiHelpers';
-import { formatCurrency, pickString } from '@/utils/format';
+import { formatCurrency, pickString, titleCaseStatus } from '@/utils/format';
 import { getOrderCustomerName, getOrderCustomerPhone, getOrderTotal } from '@/utils/order';
-import { isDeliveryPhase, orderStatusLabel } from '@/utils/orderActions';
+import { isDeliveryChannel, isDeliveryPhase, orderStatusLabel } from '@/utils/orderActions';
 import type { AppNavigation, DeliveryTrack, Order } from '@/types';
 
 const PRE_PICKUP_JOB = new Set(['PENDING', 'ASSIGNED', 'AT_PICKUP', '']);
@@ -34,20 +34,25 @@ function TrackRow({
         return;
       }
       let active = true;
-      logisticsService
-        .getDeliveryTrack(id)
-        .then(res => {
-          if (active) {
-            setTrack((unwrapPayload(res.data) || res.data) as DeliveryTrack);
-          }
-        })
-        .catch(() => {
-          if (active) {
-            setTrack(null);
-          }
-        });
+      const fetchTrack = () => {
+        logisticsService
+          .getDeliveryTrack(id)
+          .then(res => {
+            if (active) {
+              setTrack((unwrapPayload(res.data) || res.data) as DeliveryTrack);
+            }
+          })
+          .catch(() => {
+            if (active) {
+              setTrack(null);
+            }
+          });
+      };
+      fetchTrack();
+      const timer = setInterval(fetchTrack, 10000);
       return () => {
         active = false;
+        clearInterval(timer);
       };
     }, [order]),
   );
@@ -66,6 +71,9 @@ function TrackRow({
       </View>
       <Text style={styles.customer}>{getOrderCustomerName(order) || 'Customer'}</Text>
       <Text style={styles.meta}>{formatCurrency(getOrderTotal(order))}</Text>
+      {jobStatus ? (
+        <Text style={styles.rider}>Job · {titleCaseStatus(jobStatus) || jobStatus}</Text>
+      ) : null}
       {rider ? (
         <Text style={styles.rider}>Rider · {pickString(rider.name, 'Assigned')}</Text>
       ) : (
@@ -104,6 +112,10 @@ export function DeliveryTrackingScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      const timer = setInterval(() => {
+        load();
+      }, 15000);
+      return () => clearInterval(timer);
     }, [load]),
   );
 
@@ -111,7 +123,11 @@ export function DeliveryTrackingScreen() {
     () =>
       orders.filter(order => {
         const status = String(order.status || '').toUpperCase();
-        return (status === 'CONFIRMED' || status === 'SHIPPED') && isDeliveryPhase(order);
+        return (
+          (status === 'CONFIRMED' || status === 'SHIPPED') &&
+          isDeliveryChannel(order.orderChannel) &&
+          isDeliveryPhase(order)
+        );
       }),
     [orders],
   );
@@ -126,7 +142,21 @@ export function DeliveryTrackingScreen() {
 
   return (
     <Screen>
-      <AppHeader title="Delivery tracking" subtitle={`${deliveries.length} active`} showBack />
+      <AppHeader
+        title="Delivery tracking"
+        subtitle={`${deliveries.length} live · rider / OTP after kitchen marks READY`}
+        showBack
+        right={
+          <Pressable
+            onPress={() => {
+              setRefreshing(true);
+              load();
+            }}
+            style={styles.refresh}>
+            <Text style={styles.refreshText}>Refresh</Text>
+          </Pressable>
+        }
+      />
       <FlatList
         data={deliveries}
         keyExtractor={(item, index) => String(getEntityId(item) ?? index)}
@@ -141,7 +171,11 @@ export function DeliveryTrackingScreen() {
           />
         }
         ListEmptyComponent={
-          <AppEmpty icon={Bike} title="No live deliveries" subtitle="Orders ready for rider pickup will appear here." />
+          <AppEmpty
+            icon={Bike}
+            title="No live deliveries"
+            subtitle="Online delivery orders ready for rider pickup will appear here."
+          />
         }
         renderItem={({ item }) => {
           const id = getEntityId(item);
@@ -174,4 +208,12 @@ const styles = StyleSheet.create({
   otp: { marginTop: 8, fontWeight: '800', letterSpacing: 2, color: colors.brand[800], fontSize: 18 },
   call: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   callText: { color: colors.brand[700], fontWeight: '700' },
+  refresh: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  refreshText: { color: colors.brand[700], fontWeight: '700', fontSize: 12 },
 });
