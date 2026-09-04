@@ -3,15 +3,20 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useNavigation } from '@react-navigation/native';
 import {
   Armchair,
+  BarChart3,
   Bike,
   CalendarClock,
   Clock3,
+  FileText,
   Layers,
   LogOut,
+  MessageSquare,
   Package,
   Percent,
   RotateCcw,
+  Star,
   Store,
+  ToggleLeft,
   UserRound,
   Users,
   UtensilsCrossed,
@@ -50,6 +55,9 @@ export function MoreScreen() {
   const initial = shopName.slice(0, 1).toUpperCase();
   const isOnline = Boolean(user?.isOnline);
   const meta = MODULES[activeModule];
+  const isFood = activeModule === 'FOOD';
+  const isGrocery = activeModule === 'GROCERY';
+  const isEcommerce = activeModule === 'ECOMMERCE';
 
   const confirmLogout = () => {
     Alert.alert('Logout', 'You will need to sign in again.', [
@@ -108,7 +116,7 @@ export function MoreScreen() {
           </View>
         </Pressable>
 
-        {activeModule !== 'ECOMMERCE' ? (
+        {!isEcommerce ? (
           <>
             <SectionTitle title="Store status" />
             <AppCard style={styles.card}>
@@ -147,13 +155,33 @@ export function MoreScreen() {
             subtitle="Profile, shop and bank details"
             onPress={() => navigation.navigate('VendorProfile')}
           />
-          {activeModule === 'ECOMMERCE' || activeModule === 'GROCERY' ? (
+          <View style={styles.divider} />
+          <MenuRow
+            icon={Store}
+            title="Edit account"
+            subtitle="Update name, GST, pickup and bank"
+            onPress={() => navigation.navigate('VendorDetails')}
+          />
+
+          {isFood || isGrocery ? (
+            <>
+              <View style={styles.divider} />
+              <MenuRow
+                icon={Store}
+                title="My store"
+                subtitle={isFood ? 'Hours, FSSAI, delivery settings' : 'Store type, cold storage, hours'}
+                onPress={() => navigation.navigate('StoreProfile')}
+              />
+            </>
+          ) : null}
+
+          {isEcommerce || isGrocery ? (
             <>
               <View style={styles.divider} />
               <MenuRow
                 icon={Package}
                 title="Inventory"
-                subtitle={activeModule === 'GROCERY' ? 'Stock and selling price' : 'Stock and selling price'}
+                subtitle="Stock and selling price"
                 onPress={() => navigation.navigate('Inventory')}
               />
               <View style={styles.divider} />
@@ -163,44 +191,84 @@ export function MoreScreen() {
                 subtitle="Create and toggle offers"
                 onPress={() => navigation.navigate('Coupons')}
               />
-            </>
-          ) : null}
-          {activeModule === 'ECOMMERCE' ? (
-            <>
               <View style={styles.divider} />
               <MenuRow
                 icon={RotateCcw}
                 title="Returns"
-                subtitle="Approve or reject return requests"
+                subtitle="Approve returns or POS refund"
                 onPress={() => navigation.navigate('Returns')}
+              />
+              {/* Hidden for ecommerce / grocery — keep Food flow POS & cash shift
+              <View style={styles.divider} />
+              <MenuRow
+                icon={Wallet}
+                title="Counter POS"
+                subtitle="Walk-in GST billing"
+                onPress={() => navigation.navigate('CounterPos')}
+              />
+              <View style={styles.divider} />
+              <MenuRow
+                icon={Clock3}
+                title="Cash shift"
+                subtitle="Open/close drawer and cash moves"
+                onPress={() => navigation.navigate('CashShift')}
+              />
+              */}
+              <View style={styles.divider} />
+              <MenuRow
+                icon={FileText}
+                title="GST invoices"
+                subtitle="A4 and 80mm GST print"
+                onPress={() => navigation.navigate('Invoices')}
               />
             </>
           ) : null}
-          {activeModule === 'GROCERY' ? (
+
+          {isEcommerce ? (
+            <>
+              <View style={styles.divider} />
+              <MenuRow
+                icon={Star}
+                title="Product reviews"
+                subtitle="Ratings on catalog items"
+                onPress={() => navigation.navigate('ProductReviews')}
+              />
+            </>
+          ) : null}
+
+          {isGrocery ? (
             <>
               <View style={styles.divider} />
               <MenuRow
                 icon={Clock3}
                 title="Delivery slots"
-                subtitle="Fulfillment windows for grocery orders"
+                subtitle="Templates and upcoming windows"
                 onPress={() => navigation.navigate('DeliverySlots')}
               />
             </>
           ) : null}
-          {activeModule === 'FOOD' ? (
+
+          {isFood ? (
             <>
+              <View style={styles.divider} />
+              <MenuRow
+                icon={ToggleLeft}
+                title="Sold Out / Availability"
+                subtitle="Mark dishes sold out or adjust stock"
+                onPress={() => navigation.navigate('MenuAvailability')}
+              />
               <View style={styles.divider} />
               <MenuRow
                 icon={Layers}
                 title="Menu sections"
-                subtitle="Starters, mains, desserts"
+                subtitle="Icons, edit & show/hide sections"
                 onPress={() => navigation.navigate('MenuSections')}
               />
               <View style={styles.divider} />
               <MenuRow
                 icon={Layers}
                 title="Modifiers"
-                subtitle="Add-ons and spice options"
+                subtitle="Add-on groups with options & rules"
                 onPress={() => navigation.navigate('ModifierGroups')}
               />
               <View style={styles.divider} />
@@ -214,7 +282,7 @@ export function MoreScreen() {
               <MenuRow
                 icon={Armchair}
                 title="Tables & QR"
-                subtitle="Add floors, tables, guest QR and dine-in checks"
+                subtitle="Floors, tables, guest QR and dine-in"
                 onPress={() => navigation.navigate('FloorsTables')}
               />
               <View style={styles.divider} />
@@ -233,10 +301,24 @@ export function MoreScreen() {
               />
               <View style={styles.divider} />
               <MenuRow
+                icon={Clock3}
+                title="Cash shift"
+                subtitle="Drawer open, close and cash moves"
+                onPress={() => navigation.navigate('CashShift')}
+              />
+              <View style={styles.divider} />
+              <MenuRow
                 icon={Users}
-                title="Staff & shifts"
-                subtitle="Team list and cash drawer"
-                onPress={() => navigation.navigate('StaffShifts')}
+                title="Staff & roles"
+                subtitle="Create and manage team access"
+                onPress={() => navigation.navigate('StaffManage')}
+              />
+              <View style={styles.divider} />
+              <MenuRow
+                icon={FileText}
+                title="GST invoices"
+                subtitle="A4 and 80mm GST print"
+                onPress={() => navigation.navigate('Invoices')}
               />
               <View style={styles.divider} />
               <MenuRow
@@ -247,6 +329,21 @@ export function MoreScreen() {
               />
             </>
           ) : null}
+
+          <View style={styles.divider} />
+          <MenuRow
+            icon={BarChart3}
+            title="Reports"
+            subtitle="Date-range sales and channels"
+            onPress={() => navigation.navigate('Reports')}
+          />
+          <View style={styles.divider} />
+          <MenuRow
+            icon={MessageSquare}
+            title="Order reviews"
+            subtitle="Customer feedback on orders"
+            onPress={() => navigation.navigate('OrderReviews')}
+          />
         </AppCard>
 
         <Pressable

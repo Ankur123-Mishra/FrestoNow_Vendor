@@ -13,4 +13,9 @@ export const inventoryService = {
   update(id: string | number, payload: InventoryPayload) {
     return apiClient.patch(endpoints.inventory.update(id), payload);
   },
+
+  /** Quick stock adjust — absolute `stock` and/or relative `delta` (same as website Menu Availability). */
+  adjust(variantId: string | number, payload: { stock?: number; delta?: number }) {
+    return apiClient.patch(endpoints.inventory.update(variantId), payload);
+  },
 };

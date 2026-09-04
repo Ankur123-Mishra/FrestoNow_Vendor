@@ -26,19 +26,36 @@ import { toDisplayString } from '@/utils/format';
 import { resolveMediaUrl } from '@/utils/media';
 import { required } from '@/utils/validators';
 import {
+  attributesForCategory,
   emptyFoodProfile,
+  emptyIngredient,
+  FOOD_ALLERGEN_OPTIONS,
   FOOD_DIET_TYPES,
+  FOOD_ITEM_TYPE_OPTIONS,
+  FOOD_SERVING_UNIT_OPTIONS,
   FOOD_SPICE_LEVELS,
   FOOD_TAG_OPTIONS,
+  modifierGroupAttachBody,
+  modifierGroupSummary,
   readFoodProfile,
   toFoodProfilePayload,
   toggleChip,
+  validateFoodForm,
+  type FoodAttributeConfig,
   type FoodProfileForm,
 } from '@/utils/foodFields';
+import {
+  emptyGroceryDetails,
+  FOOD_TYPE_OPTIONS,
+  fromGroceryProfile,
+  toGroceryProfilePayload,
+  type GroceryDetails,
+} from '@/utils/groceryFields';
 import type {
   AppNavigation,
   Brand,
   Category,
+  FoodModifierGroup,
   FoodSection,
   PickedImage,
   Product,
@@ -57,6 +74,9 @@ type VariantRow = {
   id: string;
   sku: string;
   barcode: string;
+  variantName: string;
+  servingSize: string;
+  servingUnit: string;
   stock: string;
   lowStockAt: string;
   continueSellingWhenOos: boolean;
@@ -153,8 +173,11 @@ function emptyVariant(): VariantRow {
     id: uid(),
     sku: '',
     barcode: '',
+    variantName: '',
+    servingSize: '',
+    servingUnit: '',
     stock: '0',
-    lowStockAt: '5',
+    lowStockAt: '10',
     continueSellingWhenOos: false,
     sellingprice: '',
     originalPrice: '',
@@ -224,8 +247,11 @@ function mapVariants(product: Product): VariantRow[] {
       id: uid(),
       sku: String(item.sku || ''),
       barcode: String(item.barcode || ''),
+      variantName: String(item.variantName || ''),
+      servingSize: String(item.servingSize ?? ''),
+      servingUnit: String(item.servingUnit ?? ''),
       stock: String(item.stock ?? 0),
-      lowStockAt: String(item.lowStockAt ?? 5),
+      lowStockAt: String(item.lowStockAt ?? 10),
       continueSellingWhenOos: Boolean(item.continueSellingWhenOos),
       sellingprice: String(item.sellingprice ?? (item as { sellingPrice?: number }).sellingPrice ?? ''),
       originalPrice: String(item.originalPrice ?? ''),
@@ -331,6 +357,7 @@ const VariantCard = React.memo(function VariantCard({
   index,
   canRemove,
   expanded,
+  isFood,
   onToggle,
   onRemove,
   onChange,
@@ -342,6 +369,7 @@ const VariantCard = React.memo(function VariantCard({
   index: number;
   canRemove: boolean;
   expanded: boolean;
+  isFood?: boolean;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onChange: (id: string, patch: Partial<VariantRow>) => void;
@@ -350,7 +378,10 @@ const VariantCard = React.memo(function VariantCard({
   onPickImage: (id: string) => void;
 }) {
   const variantPreview = row.image?.uri || resolveMediaUrl(row.existingImage);
-  const summary = [row.sku || 'No SKU', row.sellingprice ? `₹${row.sellingprice}` : null]
+  const summary = [
+    isFood ? row.variantName || row.sku || 'Untitled' : row.sku || 'No SKU',
+    row.sellingprice ? `₹${row.sellingprice}` : null,
+  ]
     .filter(Boolean)
     .join(' · ');
 
@@ -358,7 +389,7 @@ const VariantCard = React.memo(function VariantCard({
     <View style={styles.card} collapsable>
       <Pressable onPress={() => onToggle(row.id)} style={[styles.cardHead, !expanded && styles.cardHeadCollapsed]}>
         <View style={styles.cardHeadText}>
-          <Text style={styles.cardTitle}>Variant {index + 1}</Text>
+          <Text style={styles.cardTitle}>{isFood ? `Portion ${index + 1}` : `Variant ${index + 1}`}</Text>
           {!expanded ? (
             <Text style={styles.collapsedMeta} numberOfLines={1}>
               {summary}
@@ -380,21 +411,62 @@ const VariantCard = React.memo(function VariantCard({
       </Pressable>
       {expanded ? (
         <View>
+          {isFood ? (
+            <>
+              <AppInput
+                label="Variant name"
+                value={row.variantName}
+                onChangeText={text => onChange(row.id, { variantName: text })}
+                placeholder="e.g. Regular, Medium, Large"
+              />
+              <View style={styles.row2}>
+                <View style={styles.col}>
+                  <AppInput
+                    label="Serving size"
+                    value={row.servingSize}
+                    onChangeText={text => onChange(row.id, { servingSize: text })}
+                    optional
+                    placeholder="500"
+                  />
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.label}>Serving unit</Text>
+                  <View style={styles.chips}>
+                    {FOOD_SERVING_UNIT_OPTIONS.map(unit => (
+                      <Chip
+                        key={unit}
+                        label={unit}
+                        selected={row.servingUnit === unit}
+                        onPress={() =>
+                          onChange(row.id, {
+                            servingUnit: row.servingUnit === unit ? '' : unit,
+                          })
+                        }
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : null}
           <AppInput
             label="SKU"
             value={row.sku}
             onChangeText={text => onChange(row.id, { sku: text })}
-            placeholder="WH-X1-BLK"
+            placeholder={isFood ? 'Auto if blank' : 'WH-X1-BLK'}
             autoCapitalize="characters"
+            optional={isFood}
           />
-          <AppInput
-            label="Barcode"
-            value={row.barcode}
-            onChangeText={text => onChange(row.id, { barcode: text })}
-            optional
-            placeholder="123456789012"
-            keyboardType="number-pad"
-          />
+          {!isFood ? (
+            <AppInput
+              label="Barcode"
+              value={row.barcode}
+              onChangeText={text => onChange(row.id, { barcode: text })}
+              optional
+              placeholder="123456789012"
+              keyboardType="number-pad"
+            />
+          ) : null}
           <View style={styles.row2}>
             <View style={styles.col}>
               <AppInput
@@ -406,10 +478,11 @@ const VariantCard = React.memo(function VariantCard({
             </View>
             <View style={styles.col}>
               <AppInput
-                label="Low stock at"
+                label="Low stock alert"
                 keyboardType="number-pad"
                 value={row.lowStockAt}
                 onChangeText={text => onChange(row.id, { lowStockAt: text })}
+                placeholder="10"
               />
             </View>
           </View>
@@ -423,120 +496,126 @@ const VariantCard = React.memo(function VariantCard({
             keyboardType="decimal-pad"
             value={row.sellingprice}
             onChangeText={text => onChange(row.id, { sellingprice: text })}
-            placeholder="2999"
+            placeholder="299"
           />
           <View style={styles.row2}>
             <View style={styles.col}>
               <AppInput
-                label="Original price"
+                label={isFood ? 'MRP (original price)' : 'Original price'}
                 keyboardType="decimal-pad"
                 value={row.originalPrice}
                 onChangeText={text => onChange(row.id, { originalPrice: text })}
                 optional
-                placeholder="3999"
+                placeholder="399"
               />
             </View>
-            <View style={styles.col}>
-              <AppInput
-                label="Cost price"
-                keyboardType="decimal-pad"
-                value={row.costPrice}
-                onChangeText={text => onChange(row.id, { costPrice: text })}
-                optional
-                placeholder="1500"
-              />
-            </View>
+            {!isFood ? (
+              <View style={styles.col}>
+                <AppInput
+                  label="Cost price"
+                  keyboardType="decimal-pad"
+                  value={row.costPrice}
+                  onChangeText={text => onChange(row.id, { costPrice: text })}
+                  optional
+                  placeholder="1500"
+                />
+              </View>
+            ) : null}
           </View>
-          <View style={styles.row2}>
-            <View style={styles.col}>
-              <AppInput
-                label="Weight"
-                keyboardType="decimal-pad"
-                value={row.weight}
-                onChangeText={text => onChange(row.id, { weight: text })}
-                optional
-                placeholder="300"
-              />
-            </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Weight unit</Text>
+          {!isFood ? (
+            <>
+              <View style={styles.row2}>
+                <View style={styles.col}>
+                  <AppInput
+                    label="Weight"
+                    keyboardType="decimal-pad"
+                    value={row.weight}
+                    onChangeText={text => onChange(row.id, { weight: text })}
+                    optional
+                    placeholder="300"
+                  />
+                </View>
+                <View style={styles.col}>
+                  <Text style={styles.label}>Weight unit</Text>
+                  <View style={styles.chips}>
+                    {WEIGHT_UNITS.map(unit => (
+                      <Chip
+                        key={unit}
+                        label={unit}
+                        selected={row.weightUnit === unit}
+                        onPress={() => onChange(row.id, { weightUnit: unit })}
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.row3}>
+                <View style={styles.col}>
+                  <AppInput
+                    label="Length"
+                    keyboardType="decimal-pad"
+                    value={row.length}
+                    onChangeText={text => onChange(row.id, { length: text })}
+                    optional
+                  />
+                </View>
+                <View style={styles.col}>
+                  <AppInput
+                    label="Breadth"
+                    keyboardType="decimal-pad"
+                    value={row.breadth}
+                    onChangeText={text => onChange(row.id, { breadth: text })}
+                    optional
+                  />
+                </View>
+                <View style={styles.col}>
+                  <AppInput
+                    label="Height"
+                    keyboardType="decimal-pad"
+                    value={row.height}
+                    onChangeText={text => onChange(row.id, { height: text })}
+                    optional
+                  />
+                </View>
+              </View>
+              <Text style={styles.label}>Dimension unit</Text>
               <View style={styles.chips}>
-                {WEIGHT_UNITS.map(unit => (
+                {DIMENSION_UNITS.map(unit => (
                   <Chip
                     key={unit}
                     label={unit}
-                    selected={row.weightUnit === unit}
-                    onPress={() => onChange(row.id, { weightUnit: unit })}
+                    selected={row.dimensionUnit === unit}
+                    onPress={() => onChange(row.id, { dimensionUnit: unit })}
                   />
                 ))}
               </View>
-            </View>
-          </View>
-          <View style={styles.row3}>
-            <View style={styles.col}>
-              <AppInput
-                label="Length"
-                keyboardType="decimal-pad"
-                value={row.length}
-                onChangeText={text => onChange(row.id, { length: text })}
-                optional
-              />
-            </View>
-            <View style={styles.col}>
-              <AppInput
-                label="Breadth"
-                keyboardType="decimal-pad"
-                value={row.breadth}
-                onChangeText={text => onChange(row.id, { breadth: text })}
-                optional
-              />
-            </View>
-            <View style={styles.col}>
-              <AppInput
-                label="Height"
-                keyboardType="decimal-pad"
-                value={row.height}
-                onChangeText={text => onChange(row.id, { height: text })}
-                optional
-              />
-            </View>
-          </View>
-          <Text style={styles.label}>Dimension unit</Text>
-          <View style={styles.chips}>
-            {DIMENSION_UNITS.map(unit => (
-              <Chip
-                key={unit}
-                label={unit}
-                selected={row.dimensionUnit === unit}
-                onPress={() => onChange(row.id, { dimensionUnit: unit })}
-              />
-            ))}
-          </View>
-          <Text style={styles.label}>Attributes</Text>
-          {row.attributes.map(attr => (
-            <View key={attr.id} style={styles.row2}>
-              <View style={styles.col}>
-                <AppInput
-                  label="Key"
-                  value={attr.key}
-                  onChangeText={text => onAttributeChange(row.id, attr.id, { key: text })}
-                  placeholder="Color"
-                />
-              </View>
-              <View style={styles.col}>
-                <AppInput
-                  label="Value"
-                  value={attr.value}
-                  onChangeText={text => onAttributeChange(row.id, attr.id, { value: text })}
-                  placeholder="Black"
-                />
-              </View>
-            </View>
-          ))}
-          <Pressable onPress={() => onAddAttribute(row.id)} style={styles.addLink}>
-            <Plus size={14} color={colors.brand[700]} />
-            <Text style={styles.addLinkText}>Add attribute</Text>
-          </Pressable>
+              <Text style={styles.label}>Attributes</Text>
+              {row.attributes.map(attr => (
+                <View key={attr.id} style={styles.row2}>
+                  <View style={styles.col}>
+                    <AppInput
+                      label="Key"
+                      value={attr.key}
+                      onChangeText={text => onAttributeChange(row.id, attr.id, { key: text })}
+                      placeholder="Color"
+                    />
+                  </View>
+                  <View style={styles.col}>
+                    <AppInput
+                      label="Value"
+                      value={attr.value}
+                      onChangeText={text => onAttributeChange(row.id, attr.id, { value: text })}
+                      placeholder="Black"
+                    />
+                  </View>
+                </View>
+              ))}
+              <Pressable onPress={() => onAddAttribute(row.id)} style={styles.addLink}>
+                <Plus size={14} color={colors.brand[700]} />
+                <Text style={styles.addLinkText}>Add attribute</Text>
+              </Pressable>
+            </>
+          ) : null}
           <Text style={styles.label}>Variant image</Text>
           <Pressable onPress={() => onPickImage(row.id)} style={styles.imagePick}>
             {variantPreview ? (
@@ -562,6 +641,7 @@ export function ProductFormScreen() {
   const showToast = useToastStore(s => s.show);
   const activeModule = useModuleStore(s => s.activeModule);
   const isFood = activeModule === 'FOOD';
+  const isGrocery = activeModule === 'GROCERY';
 
   const [booting, setBooting] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -589,19 +669,37 @@ export function ProductFormScreen() {
   const [existingThumb, setExistingThumb] = useState<string | undefined>();
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [foodProfile, setFoodProfile] = useState<FoodProfileForm>(emptyFoodProfile);
+  const [groceryProfile, setGroceryProfile] = useState<GroceryDetails>(emptyGroceryDetails);
   const [sections, setSections] = useState<FoodSection[]>([]);
+  const [modifierGroups, setModifierGroups] = useState<FoodModifierGroup[]>([]);
+  const [foodAttributes, setFoodAttributes] = useState<FoodAttributeConfig[]>([]);
+  const [comboProducts, setComboProducts] = useState<Product[]>([]);
+  const [addonIds, setAddonIds] = useState<Array<string | number>>([]);
+  const [attachedAddonIds, setAttachedAddonIds] = useState<Array<string | number>>([]);
 
   const loadLookups = useCallback(async () => {
     try {
-      const [catRes, brandRes, sectionRes] = await Promise.all([
+      const [catRes, brandRes, sectionRes, addonRes, attrRes, productRes] = await Promise.all([
         categoryService.getAll(),
         brandService.getAll(),
         isFood ? foodService.getSections() : Promise.resolve(null),
+        isFood ? foodService.getModifierGroups() : Promise.resolve(null),
+        isFood ? foodService.getAttributes() : Promise.resolve(null),
+        isFood ? productService.getMine({ limit: 100 }) : Promise.resolve(null),
       ]);
       setCategories(asArray<Category>(unwrapPayload(catRes.data)));
       setBrands(asArray<Brand>(unwrapPayload(brandRes.data)));
       if (sectionRes) {
         setSections(asArray<FoodSection>(unwrapPayload(sectionRes.data)));
+      }
+      if (addonRes) {
+        setModifierGroups(asArray<FoodModifierGroup>(unwrapPayload(addonRes.data)));
+      }
+      if (attrRes) {
+        setFoodAttributes(asArray<FoodAttributeConfig>(unwrapPayload(attrRes.data)));
+      }
+      if (productRes) {
+        setComboProducts(asArray<Product>(unwrapPayload(productRes.data)));
       }
     } catch (error) {
       showToast(getErrorMessage(error, 'Could not load catalog lookups'), 'error');
@@ -643,6 +741,14 @@ export function ProductFormScreen() {
         );
         if (product.foodProfile) {
           setFoodProfile(readFoodProfile(product.foodProfile));
+          const profileAddonIds = (product.foodProfile.modifierGroups ?? [])
+            .map(link => link.groupId)
+            .filter((id): id is string | number => id != null);
+          setAddonIds(profileAddonIds);
+          setAttachedAddonIds(profileAddonIds);
+        }
+        if (product.groceryProfile) {
+          setGroceryProfile(fromGroceryProfile(product.groceryProfile as Record<string, unknown>));
         }
       } catch (error) {
         showToast(getErrorMessage(error, 'Could not load product'), 'error');
@@ -696,10 +802,16 @@ export function ProductFormScreen() {
   }, []);
 
   const addVariant = useCallback(() => {
-    const next = emptyVariant();
-    setVariants(rows => [...rows, next]);
-    setExpandedVariantId(next.id);
-  }, []);
+    setVariants(rows => {
+      if (isFood && rows.length >= 5) {
+        showToast('Maximum 5 portions allowed', 'error');
+        return rows;
+      }
+      const next = emptyVariant();
+      setExpandedVariantId(next.id);
+      return [...rows, next];
+    });
+  }, [isFood, showToast]);
 
   const addAttribute = useCallback((variantId: string) => {
     setVariants(rows =>
@@ -746,6 +858,27 @@ export function ProductFormScreen() {
       return;
     }
 
+    if (isFood) {
+      const foodError = validateFoodForm(
+        foodProfile,
+        variants.map(row => ({
+          variantName: row.variantName,
+          sellingprice: row.sellingprice,
+          originalPrice: row.originalPrice,
+        })),
+      );
+      if (foodError) {
+        showToast(foodError, 'error');
+        return;
+      }
+      const min = asNumber(minQty || '1');
+      const max = asNumber(maxQty || '10');
+      if (min < 1 || max < 1 || min > max) {
+        showToast('Min order qty must be ≤ max order qty', 'error');
+        return;
+      }
+    }
+
     const payload: ProductPayload = {
       name: name.trim(),
       categoryId,
@@ -765,27 +898,48 @@ export function ProductFormScreen() {
       productSpecs: specs
         .filter(row => row.key.trim())
         .map(row => ({ key: row.key.trim(), value: row.value.trim() })),
-      variants: variants.map((row, index) => ({
-        sku: row.sku.trim() || (isFood ? `${name.trim().replace(/\s+/g, '-').toUpperCase()}-${index + 1}` : ''),
-        variantName: isFood ? row.sku.trim() || (index === 0 ? 'Regular' : `Portion ${index + 1}`) : undefined,
-        barcode: row.barcode.trim() || undefined,
-        stock: asNumber(row.stock),
-        lowStockAt: asNumber(row.lowStockAt),
-        continueSellingWhenOos: row.continueSellingWhenOos,
-        sellingprice: asNumber(row.sellingprice),
-        originalPrice: optionalNumber(row.originalPrice),
-        costPrice: optionalNumber(row.costPrice),
-        weight: optionalText(row.weight),
-        weightUnit: row.weightUnit,
-        length: optionalText(row.length),
-        breadth: optionalText(row.breadth),
-        height: optionalText(row.height),
-        dimensionUnit: row.dimensionUnit,
-        attributes: row.attributes
-          .filter(attr => attr.key.trim() && attr.value.trim())
-          .map(attr => ({ key: attr.key.trim(), value: attr.value.trim() })),
-      })),
+      variants: variants.map((row, index) => {
+        const autoSku =
+          row.sku.trim() ||
+          (isFood
+            ? `${name.trim().replace(/\s+/g, '-').toUpperCase() || 'FOOD'}-${index + 1}`
+            : '');
+        const variantName = isFood
+          ? row.variantName.trim() || (index === 0 ? 'Regular' : `Portion ${index + 1}`)
+          : undefined;
+        return {
+          sku: autoSku,
+          variantName,
+          servingSize: isFood ? row.servingSize.trim() || null : undefined,
+          servingUnit: isFood ? row.servingUnit.trim() || null : undefined,
+          barcode: isFood ? undefined : row.barcode.trim() || undefined,
+          stock: asNumber(row.stock),
+          lowStockAt: asNumber(row.lowStockAt),
+          continueSellingWhenOos: row.continueSellingWhenOos,
+          sellingprice: asNumber(row.sellingprice),
+          originalPrice: optionalNumber(row.originalPrice) ?? (isFood ? asNumber(row.sellingprice) : undefined),
+          costPrice: isFood ? undefined : optionalNumber(row.costPrice),
+          weight: isFood ? undefined : optionalText(row.weight),
+          weightUnit: isFood ? undefined : row.weightUnit,
+          length: isFood ? undefined : optionalText(row.length),
+          breadth: isFood ? undefined : optionalText(row.breadth),
+          height: isFood ? undefined : optionalText(row.height),
+          dimensionUnit: isFood ? undefined : row.dimensionUnit,
+          attributes: isFood
+            ? []
+            : row.attributes
+                .filter(attr => attr.key.trim() && attr.value.trim())
+                .map(attr => ({ key: attr.key.trim(), value: attr.value.trim() })),
+        };
+      }),
     };
+
+    if (isGrocery) {
+      payload.groceryProfile = toGroceryProfilePayload(groceryProfile) as unknown as Record<
+        string,
+        unknown
+      >;
+    }
 
     if (isFood && !payload.variants[0]?.sku) {
       payload.variants[0] = {
@@ -799,6 +953,27 @@ export function ProductFormScreen() {
         return;
       }
       await foodService.saveItemProfile(savedId, toFoodProfilePayload(foodProfile));
+      const selected = new Set(addonIds.map(String));
+      await Promise.all([
+        ...addonIds.map(groupId => {
+          const group = modifierGroups.find(item => String(getEntityId(item)) === String(groupId));
+          return foodService.attachModifierGroup(
+            savedId,
+            groupId,
+            modifierGroupAttachBody({
+              selectionType: group?.selectionType,
+              required: group?.required,
+              minSelect: group?.minSelect,
+              maxSelect: group?.maxSelect,
+              options: group?.options,
+            }),
+          );
+        }),
+        ...attachedAddonIds
+          .filter(groupId => !selected.has(String(groupId)))
+          .map(groupId => foodService.detachModifierGroup(savedId, groupId)),
+      ]);
+      setAttachedAddonIds(addonIds);
     };
 
     setSaving(true);
@@ -840,6 +1015,17 @@ export function ProductFormScreen() {
   }
 
   const previewUri = thumbnail?.uri || resolveMediaUrl(existingThumb);
+  const foodAttributeConfigs = attributesForCategory(foodAttributes, categoryId);
+  const comboCandidates = comboProducts.filter(item => {
+    const id = getEntityId(item);
+    if (id == null) {
+      return false;
+    }
+    if (productId != null && String(id) === String(productId)) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <Screen scroll>
@@ -869,69 +1055,117 @@ export function ProductFormScreen() {
           error={errors.categoryId}
           emptyText="No categories found"
         />
-        <AppSelect
-          label="Brand"
-          placeholder="Select a brand"
-          value={brandId}
-          options={toSelectOptions(brands)}
-          onChange={setBrandId}
-          optional
-          allowClear
-          emptyText="No brands found"
-        />
+        {!isFood ? (
+          <AppSelect
+            label="Brand"
+            placeholder="Select a brand"
+            value={brandId}
+            options={toSelectOptions(brands)}
+            onChange={setBrandId}
+            optional
+            allowClear
+            emptyText="No brands found"
+          />
+        ) : null}
         <AppInput
           label="Description"
           value={description}
           onChangeText={setDescription}
           multiline
           optional
-          placeholder="High quality over-ear wireless headphones"
+          placeholder={
+            isFood
+              ? 'Describe the dish, ingredients and taste...'
+              : 'High quality over-ear wireless headphones'
+          }
         />
-        <AppInput
-          label="Keywords"
-          value={keywords}
-          onChangeText={setKeywords}
-          optional
-          placeholder="wireless, headphones, audio, bluetooth"
-        />
-        <AppInput
-          label="Tags"
-          value={tags}
-          onChangeText={setTags}
-          optional
-          placeholder="electronics, accessories"
-        />
+        {isFood ? (
+          <View style={styles.row2}>
+            <View style={styles.col}>
+              <AppInput
+                label="Min order qty"
+                keyboardType="number-pad"
+                value={minQty}
+                onChangeText={setMinQty}
+                placeholder="1"
+              />
+            </View>
+            <View style={styles.col}>
+              <AppInput
+                label="Max order qty"
+                keyboardType="number-pad"
+                value={maxQty}
+                onChangeText={setMaxQty}
+                placeholder="10"
+              />
+            </View>
+          </View>
+        ) : (
+          <>
+            <AppInput
+              label="Keywords"
+              value={keywords}
+              onChangeText={setKeywords}
+              optional
+              placeholder="wireless, headphones, audio, bluetooth"
+            />
+            <AppInput
+              label="Tags"
+              value={tags}
+              onChangeText={setTags}
+              optional
+              placeholder="electronics, accessories"
+            />
+          </>
+        )}
+        {isFood ? (
+          <>
+            <Text style={styles.label}>Dietary type *</Text>
+            <View style={styles.chips}>
+              {FOOD_DIET_TYPES.map(option => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={foodProfile.dietaryType === option.value}
+                  onPress={() => setFoodProfile(current => ({ ...current, dietaryType: option.value }))}
+                />
+              ))}
+            </View>
+            <AppSelect
+              label="Menu section"
+              placeholder="Uncategorised"
+              value={foodProfile.sectionId}
+              options={toSelectOptions(sections)}
+              onChange={id => setFoodProfile(current => ({ ...current, sectionId: id }))}
+              optional
+              allowClear
+              emptyText="No sections yet — add them from Profile"
+            />
+            <Text style={styles.label}>Food tags</Text>
+            <View style={styles.chips}>
+              {FOOD_TAG_OPTIONS.map(tag => (
+                <Chip
+                  key={tag}
+                  label={tag}
+                  selected={foodProfile.foodTags.includes(tag)}
+                  onPress={() =>
+                    setFoodProfile(current => ({ ...current, foodTags: toggleChip(current.foodTags, tag) }))
+                  }
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
       </FormSection>
 
       {isFood ? (
         <FormSection title="Food details">
-          <Text style={styles.label}>Dietary type</Text>
-          <View style={styles.chips}>
-            {FOOD_DIET_TYPES.map(option => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={foodProfile.dietaryType === option.value}
-                onPress={() => setFoodProfile(current => ({ ...current, dietaryType: option.value }))}
-              />
-            ))}
-          </View>
-          <AppSelect
-            label="Menu section"
-            placeholder="Starters, mains..."
-            value={foodProfile.sectionId}
-            options={toSelectOptions(sections)}
-            onChange={id => setFoodProfile(current => ({ ...current, sectionId: id }))}
-            optional
-            allowClear
-            emptyText="No sections yet — add them from Profile"
-          />
           <AppInput
             label="Cuisine"
             value={foodProfile.cuisine}
             onChangeText={text => setFoodProfile(current => ({ ...current, cuisine: text }))}
             optional
-            placeholder="North Indian"
+            placeholder="North Indian, Italian…"
           />
           <Text style={styles.label}>Spice level</Text>
           <View style={styles.chips}>
@@ -947,6 +1181,15 @@ export function ProductFormScreen() {
           <View style={styles.row2}>
             <View style={styles.col}>
               <AppInput
+                label="Serves (people)"
+                keyboardType="number-pad"
+                value={foodProfile.serves}
+                onChangeText={text => setFoodProfile(current => ({ ...current, serves: text }))}
+                placeholder="1"
+              />
+            </View>
+            <View style={styles.col}>
+              <AppInput
                 label="Prep time (mins)"
                 keyboardType="number-pad"
                 value={foodProfile.prepTimeMins}
@@ -954,44 +1197,251 @@ export function ProductFormScreen() {
                 placeholder="20"
               />
             </View>
-            <View style={styles.col}>
-              <AppInput
-                label="Serves"
-                keyboardType="number-pad"
-                value={foodProfile.serves}
-                onChangeText={text => setFoodProfile(current => ({ ...current, serves: text }))}
-                placeholder="1"
-              />
-            </View>
           </View>
-          <Text style={styles.label}>Tags</Text>
+          <Text style={styles.label}>Food type</Text>
           <View style={styles.chips}>
-            {FOOD_TAG_OPTIONS.map(tag => (
+            {FOOD_ITEM_TYPE_OPTIONS.map(option => (
               <Chip
-                key={tag}
-                label={tag}
-                selected={foodProfile.foodTags.includes(tag)}
+                key={option.value}
+                label={option.label}
+                selected={foodProfile.itemType === option.value}
                 onPress={() =>
-                  setFoodProfile(current => ({ ...current, foodTags: toggleChip(current.foodTags, tag) }))
+                  setFoodProfile(current => ({
+                    ...current,
+                    itemType: option.value,
+                  }))
                 }
               />
             ))}
           </View>
+          <View style={styles.row2}>
+            <View style={styles.col}>
+              <AppInput
+                label="Calories"
+                keyboardType="decimal-pad"
+                value={foodProfile.calories}
+                onChangeText={text => setFoodProfile(current => ({ ...current, calories: text }))}
+                optional
+                placeholder="Optional"
+              />
+            </View>
+            <View style={styles.col}>
+              <AppInput
+                label="Protein (g)"
+                keyboardType="decimal-pad"
+                value={foodProfile.protein}
+                onChangeText={text => setFoodProfile(current => ({ ...current, protein: text }))}
+                optional
+                placeholder="Optional"
+              />
+            </View>
+          </View>
+          <View style={styles.row2}>
+            <View style={styles.col}>
+              <AppInput
+                label="Carbohydrates (g)"
+                keyboardType="decimal-pad"
+                value={foodProfile.carbohydrates}
+                onChangeText={text => setFoodProfile(current => ({ ...current, carbohydrates: text }))}
+                optional
+                placeholder="Optional"
+              />
+            </View>
+            <View style={styles.col}>
+              <AppInput
+                label="Fat (g)"
+                keyboardType="decimal-pad"
+                value={foodProfile.fat}
+                onChangeText={text => setFoodProfile(current => ({ ...current, fat: text }))}
+                optional
+                placeholder="Optional"
+              />
+            </View>
+          </View>
+        </FormSection>
+      ) : null}
+
+      {isFood ? (
+        <FormSection
+          title="Ingredients"
+          action={
+            <Pressable
+              onPress={() =>
+                setFoodProfile(current => ({
+                  ...current,
+                  ingredients: [...current.ingredients, emptyIngredient()],
+                }))
+              }
+              style={styles.addLink}
+            >
+              <Plus size={14} color={colors.brand[700]} />
+              <Text style={styles.addLinkText}>Add</Text>
+            </Pressable>
+          }
+        >
+          <Text style={styles.helpText}>
+            Included in the base price. Mark removable items so customers can take them off — not a paid
+            add-on.
+          </Text>
+          {foodProfile.ingredients.map((ingredient, index) => (
+            <View key={`${ingredient.id ?? 'new'}-${index}`} style={styles.ingredientRow}>
+              <AppInput
+                label="Ingredient"
+                value={ingredient.name}
+                onChangeText={text =>
+                  setFoodProfile(current => ({
+                    ...current,
+                    ingredients: current.ingredients.map((row, rowIndex) =>
+                      rowIndex === index ? { ...row, name: text } : row,
+                    ),
+                  }))
+                }
+                placeholder="e.g. Onion"
+              />
+              <AppSwitchRow
+                label="Customer can remove"
+                value={ingredient.isRemovable}
+                onValueChange={value =>
+                  setFoodProfile(current => ({
+                    ...current,
+                    ingredients: current.ingredients.map((row, rowIndex) =>
+                      rowIndex === index ? { ...row, isRemovable: value } : row,
+                    ),
+                  }))
+                }
+              />
+              {foodProfile.ingredients.length > 1 ? (
+                <Pressable
+                  onPress={() =>
+                    setFoodProfile(current => ({
+                      ...current,
+                      ingredients: current.ingredients.filter((_, rowIndex) => rowIndex !== index),
+                    }))
+                  }
+                  style={styles.removeRow}
+                >
+                  <Trash2 size={14} color={colors.danger} />
+                  <Text style={styles.removeRowText}>Remove ingredient</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
           <AppInput
-            label="Ingredients"
+            label="Ingredients description"
             value={foodProfile.ingredientsDescription}
-            onChangeText={text => setFoodProfile(current => ({ ...current, ingredientsDescription: text }))}
+            onChangeText={text =>
+              setFoodProfile(current => ({ ...current, ingredientsDescription: text }))
+            }
             optional
             multiline
-            placeholder="Chicken, butter, tomato, cream"
+            placeholder="Optional notes about ingredients"
           />
-          <AppInput
-            label="Allergens"
-            value={foodProfile.allergens}
-            onChangeText={text => setFoodProfile(current => ({ ...current, allergens: text }))}
-            optional
-            placeholder="Milk, Nuts"
-          />
+          <Text style={styles.label}>Allergens</Text>
+          <View style={styles.chips}>
+            {FOOD_ALLERGEN_OPTIONS.map(allergen => (
+              <Chip
+                key={allergen}
+                label={allergen}
+                selected={foodProfile.allergens.includes(allergen)}
+                onPress={() =>
+                  setFoodProfile(current => ({
+                    ...current,
+                    allergens: toggleChip(current.allergens, allergen),
+                  }))
+                }
+              />
+            ))}
+          </View>
+        </FormSection>
+      ) : null}
+
+      {isFood ? (
+        <FormSection title="Food attributes">
+          {foodAttributeConfigs.length ? (
+            foodAttributeConfigs.map(attribute => (
+              <AppSelect
+                key={String(attribute.id)}
+                label={attribute.name}
+                placeholder="Not set"
+                value={foodProfile.attributes[attribute.name] ?? ''}
+                options={(attribute.options ?? [])
+                  .filter(option => option.isActive !== false)
+                  .map(option => ({
+                    value: option.name,
+                    label: option.name,
+                  }))}
+                onChange={value =>
+                  setFoodProfile(current => ({
+                    ...current,
+                    attributes: {
+                      ...current.attributes,
+                      [attribute.name]: value,
+                    },
+                  }))
+                }
+                optional
+                allowClear
+              />
+            ))
+          ) : (
+            <Text style={styles.helpText}>
+              No reusable attributes for this category. Create attributes such as Crust Type or Sugar
+              Level on Food catalog.
+            </Text>
+          )}
+        </FormSection>
+      ) : null}
+
+      {isFood ? (
+        <FormSection title="Customization">
+          <Text style={styles.helpText}>
+            Assign modifier groups such as size or toppings. Manage groups from More → Modifiers.
+          </Text>
+          {modifierGroups.length === 0 ? (
+            <Text style={styles.helpText}>No modifier groups yet. Create them in Modifiers first.</Text>
+          ) : (
+            <View style={styles.modifierList}>
+              {modifierGroups
+                .filter(group => group.isActive !== false)
+                .map(group => {
+                  const groupId = getEntityId(group);
+                  if (groupId == null) {
+                    return null;
+                  }
+                  const assigned = addonIds.some(id => String(id) === String(groupId));
+                  return (
+                    <Pressable
+                      key={String(groupId)}
+                      onPress={() =>
+                        setAddonIds(ids =>
+                          assigned
+                            ? ids.filter(id => String(id) !== String(groupId))
+                            : [...ids, groupId],
+                        )
+                      }
+                      style={[styles.modifierCard, assigned && styles.modifierCardOn]}
+                    >
+                      <View style={styles.modifierHead}>
+                        <Text style={styles.modifierName}>{toDisplayString(group.name) || 'Modifier'}</Text>
+                        <Text style={[styles.modifierCheck, assigned && styles.modifierCheckOn]}>
+                          {assigned ? 'On' : 'Off'}
+                        </Text>
+                      </View>
+                      <Text style={styles.modifierMeta}>{modifierGroupSummary(group)}</Text>
+                    </Pressable>
+                  );
+                })}
+            </View>
+          )}
+        </FormSection>
+      ) : null}
+
+      {isFood ? (
+        <FormSection title="Availability">
+          <Text style={styles.helpText}>
+            Sold out, time windows and pre-order. Customers cannot order outside the window unless
+            pre-order is on.
+          </Text>
           <AppSwitchRow
             label="Available"
             value={foodProfile.isAvailable}
@@ -1001,6 +1451,189 @@ export function ProductFormScreen() {
             label="Sold out"
             value={foodProfile.isSoldOut}
             onValueChange={value => setFoodProfile(current => ({ ...current, isSoldOut: value }))}
+          />
+          <View style={styles.row2}>
+            <View style={styles.col}>
+              <AppInput
+                label="Available from"
+                value={foodProfile.availableFrom}
+                onChangeText={text =>
+                  setFoodProfile(current => ({ ...current, availableFrom: text }))
+                }
+                optional
+                placeholder="09:00"
+              />
+            </View>
+            <View style={styles.col}>
+              <AppInput
+                label="Available until"
+                value={foodProfile.availableUntil}
+                onChangeText={text =>
+                  setFoodProfile(current => ({ ...current, availableUntil: text }))
+                }
+                optional
+                placeholder="22:00"
+              />
+            </View>
+          </View>
+          <AppSwitchRow
+            label="Allow pre-order outside this window"
+            value={foodProfile.isPreorder}
+            onValueChange={value => setFoodProfile(current => ({ ...current, isPreorder: value }))}
+          />
+        </FormSection>
+      ) : null}
+
+      {isFood && foodProfile.itemType === 'COMBO' ? (
+        <FormSection
+          title="Combo / meal"
+          action={
+            <Pressable
+              onPress={() =>
+                setFoodProfile(current => ({
+                  ...current,
+                  comboItems: [...current.comboItems, { productId: '', quantity: '1' }],
+                }))
+              }
+              style={styles.addLink}
+            >
+              <Plus size={14} color={colors.brand[700]} />
+              <Text style={styles.addLinkText}>Add item</Text>
+            </Pressable>
+          }
+        >
+          <Text style={styles.helpText}>
+            Food items included in this combo. Quantities are per combo, not variants.
+          </Text>
+          {foodProfile.comboItems.map((item, index) => (
+            <View key={`combo-${index}`} style={styles.ingredientRow}>
+              <AppSelect
+                label="Select food item"
+                placeholder="Select food item"
+                value={item.productId}
+                options={comboCandidates.map(candidate => ({
+                  value: String(getEntityId(candidate) ?? ''),
+                  label: String(candidate.name || getEntityId(candidate) || ''),
+                }))}
+                onChange={value => {
+                  const selected = comboCandidates.find(
+                    candidate => String(getEntityId(candidate)) === value,
+                  );
+                  setFoodProfile(current => ({
+                    ...current,
+                    comboItems: current.comboItems.map((row, rowIndex) =>
+                      rowIndex === index
+                        ? {
+                            productId: value,
+                            quantity: row.quantity,
+                            name: selected?.name,
+                          }
+                        : row,
+                    ),
+                  }));
+                }}
+                emptyText="No other dishes found"
+              />
+              <AppInput
+                label="Quantity"
+                keyboardType="number-pad"
+                value={item.quantity}
+                onChangeText={text =>
+                  setFoodProfile(current => ({
+                    ...current,
+                    comboItems: current.comboItems.map((row, rowIndex) =>
+                      rowIndex === index ? { ...row, quantity: text } : row,
+                    ),
+                  }))
+                }
+              />
+              {foodProfile.comboItems.length > 1 ? (
+                <Pressable
+                  onPress={() =>
+                    setFoodProfile(current => ({
+                      ...current,
+                      comboItems: current.comboItems.filter((_, rowIndex) => rowIndex !== index),
+                    }))
+                  }
+                  style={styles.removeRow}
+                >
+                  <Trash2 size={14} color={colors.danger} />
+                  <Text style={styles.removeRowText}>Remove item</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+        </FormSection>
+      ) : null}
+
+      {isGrocery ? (
+        <FormSection title="Grocery details">
+          <AppInput
+            label="Brand"
+            value={groceryProfile.brand}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, brand: text }))}
+            optional
+          />
+          <Text style={styles.label}>Food type</Text>
+          <View style={styles.chips}>
+            {FOOD_TYPE_OPTIONS.map(option => (
+              <Chip
+                key={option}
+                label={option}
+                selected={groceryProfile.foodType === option}
+                onPress={() => setGroceryProfile(current => ({ ...current, foodType: option }))}
+              />
+            ))}
+          </View>
+          <AppInput
+            label="Country of origin"
+            value={groceryProfile.countryOfOrigin}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, countryOfOrigin: text }))}
+            optional
+          />
+          <AppInput
+            label="FSSAI license"
+            value={groceryProfile.fssai}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, fssai: text }))}
+            optional
+          />
+          <AppInput
+            label="Shelf life"
+            value={groceryProfile.shelfLife}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, shelfLife: text }))}
+            optional
+            placeholder="6 months"
+          />
+          <AppInput
+            label="Storage"
+            value={groceryProfile.storage}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, storage: text }))}
+            optional
+            placeholder="Keep refrigerated"
+          />
+          <AppInput
+            label="Marketed by"
+            value={groceryProfile.marketedBy}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, marketedBy: text }))}
+            optional
+          />
+          <AppInput
+            label="Nutrition info"
+            value={groceryProfile.nutritionInfo}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, nutritionInfo: text }))}
+            optional
+            multiline
+          />
+          <AppInput
+            label="Allergens"
+            value={groceryProfile.allergens}
+            onChangeText={text => setGroceryProfile(current => ({ ...current, allergens: text }))}
+            optional
+          />
+          <AppSwitchRow
+            label="Cold chain required"
+            value={groceryProfile.isColdChain}
+            onValueChange={value => setGroceryProfile(current => ({ ...current, isColdChain: value }))}
           />
         </FormSection>
       ) : null}
@@ -1133,6 +1766,7 @@ export function ProductFormScreen() {
               index={index}
               canRemove={variants.length > 1}
               expanded={expandedVariantId === row.id}
+              isFood={isFood}
               onToggle={toggleVariant}
               onRemove={removeVariant}
               onChange={updateVariant}
@@ -1143,6 +1777,59 @@ export function ProductFormScreen() {
           ))}
         </View>
       </FormSection>
+
+      {isFood ? (
+        <FormSection title="SEO & discovery">
+          <AppInput
+            label="Tags"
+            value={tags}
+            onChangeText={setTags}
+            optional
+            placeholder="summer, cotton, men — comma separated"
+          />
+          <AppInput
+            label="Meta title"
+            value={metaTitle}
+            onChangeText={setMetaTitle}
+            optional
+            placeholder="SEO title (defaults to dish name)"
+          />
+          <AppInput
+            label="Keywords"
+            value={keywords}
+            onChangeText={setKeywords}
+            optional
+            placeholder="butter chicken, north indian"
+          />
+          <AppInput
+            label="Meta description"
+            value={metaDescription}
+            onChangeText={setMetaDescription}
+            optional
+            multiline
+            placeholder="Short SEO summary shown in search results"
+          />
+          <Text style={styles.label}>Meta robots</Text>
+          <View style={styles.chips}>
+            {META_ROBOTS_OPTIONS.map(option => (
+              <Chip
+                key={option}
+                label={option}
+                selected={metaRobots === option}
+                onPress={() => setMetaRobots(option)}
+              />
+            ))}
+          </View>
+          <AppInput
+            label="Canonical URL"
+            value={canonicalUrl}
+            onChangeText={setCanonicalUrl}
+            optional
+            autoCapitalize="none"
+            placeholder="https://frestonow.com/product/..."
+          />
+        </FormSection>
+      ) : null}
 
       <FormSection title="Media & status">
         <Text style={styles.label}>Thumbnail</Text>
@@ -1186,11 +1873,49 @@ const styles = StyleSheet.create({
   },
   stack: { gap: 10 },
   label: { color: colors.textSecondary, fontWeight: '600', marginBottom: 6, fontSize: 13 },
+  helpText: { color: colors.muted, fontSize: 12, fontWeight: '600', marginBottom: 8, lineHeight: 17 },
+  modifierList: { gap: 8, marginBottom: 4 },
+  modifierCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 12,
+    backgroundColor: colors.surfaceMuted,
+  },
+  modifierCardOn: {
+    borderColor: colors.brand[600],
+    backgroundColor: colors.brand[50],
+  },
+  modifierHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  modifierName: { flex: 1, fontWeight: '700', color: colors.text },
+  modifierCheck: { fontWeight: '800', fontSize: 12, color: colors.muted },
+  modifierCheckOn: { color: colors.brand[800] },
+  modifierMeta: { marginTop: 4, color: colors.muted, fontWeight: '600', fontSize: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
   error: { color: colors.danger, marginBottom: 8, fontSize: 12 },
   row2: { flexDirection: 'row', gap: 10 },
   row3: { flexDirection: 'row', gap: 8 },
   col: { flex: 1 },
+  ingredientRow: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: colors.surfaceMuted,
+  },
+  removeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  removeRowText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
   card: {
     borderWidth: 1,
     borderColor: colors.border,

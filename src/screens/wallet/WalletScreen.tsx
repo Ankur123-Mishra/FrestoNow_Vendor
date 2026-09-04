@@ -23,23 +23,91 @@ import { SectionTitle } from '@/components/ui/SectionTitle';
 import { walletService } from '@/api/services';
 import { useToastStore } from '@/store/toastStore';
 import { colors, radius, shadows } from '@/theme';
-import { asArray, getErrorMessage, mapWalletBalance } from '@/utils/apiHelpers';
+import {
+  asArray,
+  getErrorMessage,
+  mapWalletBalance,
+  mapWalletSummary,
+  unwrapPayload,
+} from '@/utils/apiHelpers';
 import { formatCurrency, formatDate, pickNumber, pickString, titleCaseStatus } from '@/utils/format';
 import { moderateScale } from '@/utils/responsive';
 import type { WalletHistoryItem } from '@/types';
 
 const QUICK_AMOUNTS = [1000, 2500, 5000];
 
+const LEDGER_KIND_LABEL: Record<string, string> = {
+  SETTLE: 'Order credited',
+  REVERSE: 'Refund reversal',
+  PAYOUT: 'Payout',
+  ADJUST: 'Manual adjust',
+};
+
 function isCreditEntry(item: WalletHistoryItem) {
-  const type = pickString(item.type, item.txnType, item.transactionType, item.entryType).toLowerCase();
-  const amount = pickNumber(item.amount);
-  if (/debit|payout|withdraw|deduct|charge|paid/.test(type)) {
+  const direction = pickString(item.direction).toUpperCase();
+  if (direction === 'CREDIT') {
+    return true;
+  }
+  if (direction === 'DEBIT') {
     return false;
   }
-  if (/credit|deposit|refund|bonus|added|received/.test(type)) {
+
+  const type = pickString(
+    item.type,
+    item.txnType,
+    item.transactionType,
+    item.entryType,
+    item.entryKind,
+  ).toLowerCase();
+  const amount = pickNumber(item.amount);
+  if (/debit|payout|withdraw|deduct|charge|paid|reverse/.test(type)) {
+    return false;
+  }
+  if (/credit|deposit|refund|bonus|added|received|settle/.test(type)) {
     return true;
   }
   return amount >= 0;
+}
+
+function historyTitle(item: WalletHistoryItem) {
+  const description = pickString(item.description);
+  if (description) {
+    return description;
+  }
+  const kind = pickString(item.entryKind).toUpperCase();
+  if (kind && LEDGER_KIND_LABEL[kind]) {
+    return LEDGER_KIND_LABEL[kind];
+  }
+  return pickString(item.entryKind, item.transactionType, item.type, 'Transaction');
+}
+
+function historyBadge(item: WalletHistoryItem) {
+  return titleCaseStatus(
+    pickString(item.direction, item.type, item.entryKind, item.transactionType, 'txn'),
+  );
+}
+
+function parseHistoryPayload(payload: unknown): WalletHistoryItem[] {
+  const nested = unwrapPayload(payload) as Record<string, unknown> | unknown;
+  if (Array.isArray(nested)) {
+    return nested as WalletHistoryItem[];
+  }
+  if (nested && typeof nested === 'object') {
+    const obj = nested as Record<string, unknown>;
+    if (Array.isArray(obj.entries) && obj.entries.length > 0) {
+      return obj.entries as WalletHistoryItem[];
+    }
+    if (Array.isArray(obj.history) && obj.history.length > 0) {
+      return obj.history as WalletHistoryItem[];
+    }
+    if (Array.isArray(obj.entries)) {
+      return obj.entries as WalletHistoryItem[];
+    }
+    if (Array.isArray(obj.history)) {
+      return obj.history as WalletHistoryItem[];
+    }
+  }
+  return asArray<WalletHistoryItem>(payload);
 }
 
 export function WalletScreen() {
@@ -50,17 +118,34 @@ export function WalletScreen() {
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [balance, setBalance] = useState(0);
   const [history, setHistory] = useState<WalletHistoryItem[]>([]);
+  const [summaryTotals, setSummaryTotals] = useState<{ credit: number; debit: number } | null>(
+    null,
+  );
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('Weekly payout request');
 
   const load = useCallback(async () => {
     try {
-      const [balanceRes, historyRes] = await Promise.all([
+      const [balanceRes, historyRes, summaryResult, financeBalanceResult] = await Promise.all([
         walletService.getBalance(),
         walletService.getHistory(),
+        walletService.getSummary().catch(() => null),
+        walletService.getFinanceBalance().catch(() => null),
       ]);
-      setBalance(mapWalletBalance(balanceRes.data).balance);
-      setHistory(asArray<WalletHistoryItem>(historyRes.data));
+
+      const walletBalance = mapWalletBalance(balanceRes.data).balance;
+      const financeRaw = financeBalanceResult?.data
+        ? mapWalletBalance(financeBalanceResult.data).balance
+        : 0;
+      const summary = summaryResult?.data ? mapWalletSummary(summaryResult.data) : null;
+
+      setBalance(financeRaw || summary?.balance || walletBalance);
+      setHistory(parseHistoryPayload(historyRes.data));
+      setSummaryTotals(
+        summary
+          ? { credit: summary.credit, debit: summary.debit }
+          : null,
+      );
     } catch (error) {
       showToast(getErrorMessage(error, 'Could not load wallet'), 'error');
     } finally {
@@ -76,6 +161,9 @@ export function WalletScreen() {
   );
 
   const totals = useMemo(() => {
+    if (summaryTotals) {
+      return summaryTotals;
+    }
     let credit = 0;
     let debit = 0;
     for (const item of history) {
@@ -87,7 +175,7 @@ export function WalletScreen() {
       }
     }
     return { credit, debit };
-  }, [history]);
+  }, [history, summaryTotals]);
 
   const requestPayout = async () => {
     const value = Number(amount);
@@ -235,7 +323,7 @@ export function WalletScreen() {
                 </View>
                 <View style={styles.meta}>
                   <Text style={styles.title} numberOfLines={2}>
-                    {pickString(item.description, item.type, 'Transaction')}
+                    {historyTitle(item)}
                   </Text>
                   <Text style={styles.date}>{formatDate(item.createdAt || item.created_at)}</Text>
                 </View>
@@ -244,7 +332,7 @@ export function WalletScreen() {
                     {credit ? '+' : '−'}
                     {formatCurrency(value)}
                   </Text>
-                  <AppBadge label={titleCaseStatus(item.type)} />
+                  <AppBadge label={historyBadge(item)} />
                 </View>
               </View>
             );

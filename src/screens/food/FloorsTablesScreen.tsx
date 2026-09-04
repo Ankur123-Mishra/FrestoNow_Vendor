@@ -466,6 +466,9 @@ export function FloorsTablesScreen() {
                       const id = getEntityId(table);
                       const style = tableStatusStyle(table.status);
                       const openOrder = table.openOrder;
+                      const sessionOrders = asArray(table.sessionOrders ?? openOrder?.sessionOrders);
+                      const batchCount = sessionOrders.length || (openOrder ? 1 : 0);
+                      const channel = pickString(openOrder?.orderChannel);
                       return (
                         <Pressable
                           key={String(id ?? index)}
@@ -486,6 +489,8 @@ export function FloorsTablesScreen() {
                             <Text style={styles.tileBill}>
                               {formatCurrency(openOrder.totalAmount ?? openOrder.total)}
                               {openOrder.covers ? ` · ${openOrder.covers} guests` : ''}
+                              {batchCount > 1 ? ` · ${batchCount} batches` : ''}
+                              {channel ? `\n${channel.replace(/_/g, ' ')}` : ''}
                             </Text>
                           ) : table.reservation ? (
                             <Text style={styles.tileRes} numberOfLines={2}>

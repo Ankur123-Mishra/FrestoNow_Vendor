@@ -10,6 +10,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/store/toastStore';
 import { colors, radius } from '@/theme';
 import { isValidEmail, isValidPhone, required } from '@/utils/validators';
+import { GeoLocationField } from '@/shared/location/GeoLocationField';
+import type { PlaceSelection } from '@/shared/location/googleMaps';
 import type { AuthNavigation, RegisterRoute } from '@/types';
 
 export function RegisterScreen() {
@@ -28,6 +30,8 @@ export function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [pickupLocation, setPickupLocation] = useState('');
   const [pickupPin, setPickupPin] = useState('');
+  const [pickupLatitude, setPickupLatitude] = useState('');
+  const [pickupLongitude, setPickupLongitude] = useState('');
   const [bankName, setBankName] = useState('');
   const [bankAccount, setBankAccount] = useState('');
   const [bankIfsc, setBankIfsc] = useState('');
@@ -145,6 +149,26 @@ export function RegisterScreen() {
           error={errors.pickupPin}
           placeholder="110001"
           maxLength={6}
+        />
+        <GeoLocationField
+          latitude={pickupLatitude}
+          longitude={pickupLongitude}
+          initialQuery={pickupLocation}
+          showCoordinates={false}
+          searchPlaceholder="Search pickup address or landmark"
+          hint="Search, use current location, or drop a pin. Pickup address and PIN fill automatically."
+          onPick={(place: PlaceSelection) => {
+            setPickupLocation(place.street || place.label || pickupLocation);
+            if (place.pincode) {
+              setPickupPin(place.pincode);
+            }
+            setPickupLatitude(String(place.latitude));
+            setPickupLongitude(String(place.longitude));
+          }}
+          onLatLngChange={(lat, lng) => {
+            setPickupLatitude(lat);
+            setPickupLongitude(lng);
+          }}
         />
         <AppInput
           label="Bank name"

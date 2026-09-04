@@ -135,15 +135,20 @@ export interface ProductAttributeInput {
 }
 
 export interface ProductVariantInput {
+  id?: number | string;
   sku: string;
   barcode?: string;
   stock: number;
   lowStockAt: number;
   continueSellingWhenOos: boolean;
   sellingprice: number;
+  sellingPrice?: number;
+  price?: number;
   originalPrice?: number;
   costPrice?: number;
   variantName?: string;
+  servingSize?: string | null;
+  servingUnit?: string | null;
   weight?: string | number;
   weightUnit?: string;
   length?: string | number;
@@ -151,6 +156,39 @@ export interface ProductVariantInput {
   height?: string | number;
   dimensionUnit?: string;
   attributes: ProductAttributeInput[];
+}
+
+export interface FoodItemProfile {
+  dietType?: string;
+  isSoldOut?: boolean;
+  isAvailable?: boolean;
+  isPreorder?: boolean;
+  availableFrom?: string;
+  availableUntil?: string;
+  prepTimeMins?: number;
+  cuisine?: string;
+  spiceLevel?: string;
+  serves?: number;
+  sectionId?: number | string | null;
+  calories?: number | null;
+  protein?: number | null;
+  carbohydrates?: number | null;
+  fat?: number | null;
+  foodTags?: string[];
+  ingredients?: Array<{
+    id?: number;
+    name?: string;
+    isIncluded?: boolean;
+    isRemovable?: boolean;
+    isActive?: boolean;
+  }>;
+  ingredientsDescription?: string;
+  allergens?: string[];
+  attributes?: Record<string, unknown>;
+  itemType?: 'SINGLE' | 'COMBO';
+  comboItems?: Array<{ productId?: number; quantity?: number; name?: string }>;
+  modifierGroups?: Array<{ groupId: number | string }>;
+  [key: string]: unknown;
 }
 
 export interface Product {
@@ -177,7 +215,7 @@ export interface Product {
   images?: string[];
   price?: number;
   sellingPrice?: number;
-  foodProfile?: Record<string, unknown> | null;
+  foodProfile?: FoodItemProfile | null;
   groceryProfile?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
@@ -199,6 +237,7 @@ export interface ProductPayload {
   productSpecs: ProductSpecInput[];
   variants: ProductVariantInput[];
   is_active?: boolean;
+  groceryProfile?: Record<string, unknown> | null;
 }
 
 export interface PickedImage {
@@ -241,6 +280,12 @@ export interface OrderItem {
   status?: string;
   variant?: OrderItemVariant;
   variantId?: number | string;
+  foodModifiers?: Array<{
+    optionName?: string;
+    groupName?: string;
+    price?: number | string;
+  }>;
+  metadata?: unknown;
   vendor?: {
     id?: number | string;
     name?: string;
@@ -340,6 +385,7 @@ export interface Order {
   statusHistories?: OrderStatusHistory[];
   items?: OrderItem[];
   orderItems?: OrderItem[];
+  sessionOrders?: Order[];
   [key: string]: unknown;
 }
 
@@ -433,7 +479,15 @@ export interface WalletHistoryItem {
   id?: number | string;
   amount?: number;
   type?: string;
+  direction?: string;
+  entryKind?: string;
+  transactionType?: string;
+  txnType?: string;
+  entryType?: string;
+  accountCode?: string;
   description?: string;
+  balanceAfter?: number | string | null;
+  orderId?: number | string | null;
   createdAt?: string;
   created_at?: string;
   [key: string]: unknown;
@@ -475,9 +529,15 @@ export interface FoodSection {
   id: number | string;
   name?: string;
   title?: string;
+  description?: string | null;
   position?: number;
+  sortOrder?: number;
+  isActive?: boolean;
+  icon?: string | null;
+  iconUrl?: string | null;
   items?: FoodMenuItem[];
   products?: FoodMenuItem[];
+  menuItems?: FoodMenuItem[];
   [key: string]: unknown;
 }
 
@@ -490,11 +550,24 @@ export interface FoodMenuItem {
   [key: string]: unknown;
 }
 
+export interface FoodModifierOption {
+  id: number | string;
+  name?: string;
+  price?: number | string;
+  isActive?: boolean;
+  isDefault?: boolean;
+  dietaryType?: string;
+}
+
 export interface FoodModifierGroup {
   id: number | string;
   name?: string;
+  required?: boolean;
+  isActive?: boolean;
+  selectionType?: string;
   minSelect?: number;
   maxSelect?: number;
+  options?: FoodModifierOption[];
   [key: string]: unknown;
 }
 
@@ -536,6 +609,8 @@ export interface FoodTable {
   qrGuestUrl?: string | null;
   reservation?: FoodTableReservation | null;
   openOrder?: Order | null;
+  /** Merged unpaid / session batches from floor map. */
+  sessionOrders?: Order[];
   [key: string]: unknown;
 }
 

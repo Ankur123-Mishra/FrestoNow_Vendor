@@ -15,7 +15,7 @@ import { asArray, getEntityId, getErrorMessage, unwrapPayload } from '@/utils/ap
 import { formatCurrency, formatDateTime, pickString } from '@/utils/format';
 import {
   getOrderCustomerName,
-  getOrderItemName,
+  getOrderItemDisplayName,
   getOrderItemQty,
   getOrderItems,
   getOrderTotal,
@@ -57,6 +57,10 @@ export function KitchenOrdersScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      const timer = setInterval(() => {
+        load(true);
+      }, 12000);
+      return () => clearInterval(timer);
     }, [load]),
   );
 
@@ -133,18 +137,23 @@ export function KitchenOrdersScreen() {
           const id = getEntityId(item);
           const items = getOrderItems(item);
           const first = items[0];
+          const place = item.tableNumber
+            ? `Table ${item.tableNumber}`
+            : item.tokenNumber != null
+              ? `Token #${item.tokenNumber}`
+              : orderChannelLabel(item.orderChannel);
           return (
             <Pressable
               style={styles.row}
-              onPress={() => id && navigation.navigate('OrderDetail', { orderId: id })}>
+              onPress={() => id && navigation.navigate('KitchenOrderDetail', { orderId: id })}>
               <View style={styles.copy}>
                 <Text style={styles.name}>#{pickString(item.orderNumber, item.id)}</Text>
                 <Text style={styles.meta} numberOfLines={1}>
-                  {orderChannelLabel(item.orderChannel)} · {formatDateTime(item.createdAt)}
+                  {place} · {formatDateTime(item.createdAt)}
                 </Text>
                 {first ? (
                   <Text style={styles.items} numberOfLines={1}>
-                    {getOrderItemQty(first)}× {getOrderItemName(first)}
+                    {getOrderItemQty(first)}× {getOrderItemDisplayName(first)}
                     {items.length > 1 ? ` · +${items.length - 1} more` : ''}
                   </Text>
                 ) : null}

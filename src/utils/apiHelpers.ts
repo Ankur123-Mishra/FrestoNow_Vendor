@@ -28,6 +28,7 @@ export function asArray<T = JsonObject>(raw: unknown): T[] {
     'orders',
     'categories',
     'brands',
+    'entries',
     'history',
     'transactions',
     'ledger',
@@ -38,6 +39,7 @@ export function asArray<T = JsonObject>(raw: unknown): T[] {
     'services',
     'sections',
     'modifierGroups',
+    'groups',
     'floors',
     'tables',
     'reservations',
@@ -48,6 +50,9 @@ export function asArray<T = JsonObject>(raw: unknown): T[] {
     'shifts',
     'kitchenOrders',
     'menu',
+    'reviews',
+    'movements',
+    'invoices',
   ];
   for (const key of keys) {
     const value = (nested as JsonObject)?.[key] ?? obj[key];
@@ -171,8 +176,18 @@ export function mapDashboardStats(raw: unknown): DashboardStats {
 
 export function mapWalletBalance(raw: unknown): WalletBalance {
   const source = (unwrapPayload(raw) || {}) as JsonObject;
+  const wallet =
+    source.wallet && typeof source.wallet === 'object'
+      ? (source.wallet as JsonObject)
+      : null;
   const balance = Number(
-    source.balance ?? source.availableBalance ?? source.walletBalance ?? source.amount ?? 0,
+    source.available ??
+      source.balance ??
+      source.availableBalance ??
+      source.walletBalance ??
+      wallet?.currentBalance ??
+      source.amount ??
+      0,
   );
   const adminId = Number(source.adminId ?? source.admin_id);
   return {
@@ -185,10 +200,25 @@ export function mapWalletBalance(raw: unknown): WalletBalance {
 
 export function mapWalletSummary(raw: unknown) {
   const source = (unwrapPayload(raw) || {}) as JsonObject;
+  const wallet =
+    source.wallet && typeof source.wallet === 'object'
+      ? (source.wallet as JsonObject)
+      : source;
   return {
-    credit: Number(source.credit ?? source.totalCredit ?? source.credited ?? 0) || 0,
-    debit: Number(source.debit ?? source.totalDebit ?? source.debited ?? 0) || 0,
+    credit:
+      Number(
+        wallet.totalCredits ??
+          source.credit ??
+          source.totalCredit ??
+          source.credited ??
+          0,
+      ) || 0,
+    debit:
+      Number(
+        wallet.totalDebits ?? source.debit ?? source.totalDebit ?? source.debited ?? 0,
+      ) || 0,
     pending: Number(source.pending ?? source.pendingAmount ?? 0) || 0,
+    balance: Number(wallet.currentBalance ?? source.balance ?? 0) || 0,
     raw: source,
   };
 }

@@ -10,3 +10,5 @@ export { inventoryService } from './inventoryService';
 export { couponService } from './couponService';
 export { slotService } from './slotService';
 export { foodService } from './foodService';
+export { reviewService } from './reviewService';
+export { counterService } from './counterService';

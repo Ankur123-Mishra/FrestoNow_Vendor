@@ -120,7 +120,10 @@ export function DeliverySlotsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [slots, setSlots] = useState<DeliverySlot[]>([]);
+  const [upcoming, setUpcoming] = useState<DeliverySlot[]>([]);
+  const [tab, setTab] = useState<'templates' | 'upcoming'>('templates');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
   const [form, setForm] = useState<SlotTemplatePayload>(EMPTY_FORM);
   const [capacityText, setCapacityText] = useState('20');
   const [openPicker, setOpenPicker] = useState<PickerField>(null);
@@ -128,8 +131,14 @@ export function DeliverySlotsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const res = await slotService.getTemplates();
-      setSlots(sortTemplates(asArray<DeliverySlot>(unwrapPayload(res.data))));
+      const [templatesRes, upcomingRes] = await Promise.all([
+        slotService.getTemplates(),
+        slotService.getUpcoming(7).catch(() => null),
+      ]);
+      setSlots(sortTemplates(asArray<DeliverySlot>(unwrapPayload(templatesRes.data))));
+      if (upcomingRes) {
+        setUpcoming(asArray<DeliverySlot>(unwrapPayload(upcomingRes.data)));
+      }
     } catch (error) {
       showToast(getErrorMessage(error, 'Could not load delivery slots'), 'error');
     } finally {
@@ -145,11 +154,45 @@ export function DeliverySlotsScreen() {
   );
 
   const openCreate = () => {
+    setEditingId(null);
     setForm(EMPTY_FORM);
     setCapacityText('20');
     setErrors({});
     setOpenPicker(null);
     setModalOpen(true);
+  };
+
+  const openEdit = (item: DeliverySlot) => {
+    const id = getEntityId(item);
+    if (!id) {
+      return;
+    }
+    setEditingId(id);
+    setForm({
+      dayOfWeek: Number(item.dayOfWeek ?? 1) || 1,
+      startTime: String(item.startTime || '09:00'),
+      endTime: String(item.endTime || '12:00'),
+      capacity: Number(item.capacity ?? 20) || 20,
+      isActive: item.isActive !== false,
+    });
+    setCapacityText(String(item.capacity ?? 20));
+    setErrors({});
+    setOpenPicker(null);
+    setModalOpen(true);
+  };
+
+  const onDelete = async (item: DeliverySlot) => {
+    const id = getEntityId(item);
+    if (!id) {
+      return;
+    }
+    try {
+      await slotService.deleteTemplate(id);
+      showToast('Template deleted', 'success');
+      await load();
+    } catch (error) {
+      showToast(getErrorMessage(error, 'Could not delete template'), 'error');
+    }
   };
 
   const closeCreate = () => {
@@ -158,6 +201,7 @@ export function DeliverySlotsScreen() {
     }
     setModalOpen(false);
     setOpenPicker(null);
+    setEditingId(null);
   };
 
   const togglePicker = (field: PickerField) => {
@@ -189,19 +233,26 @@ export function DeliverySlotsScreen() {
 
     setSaving(true);
     try {
-      await slotService.createTemplate({
+      const payload = {
         dayOfWeek: form.dayOfWeek,
         startTime: form.startTime,
         endTime: form.endTime,
         capacity,
         isActive: form.isActive,
-      });
-      showToast('Template created', 'success');
+      };
+      if (editingId) {
+        await slotService.updateTemplate(editingId, payload);
+        showToast('Template updated', 'success');
+      } else {
+        await slotService.createTemplate(payload);
+        showToast('Template created', 'success');
+      }
       setModalOpen(false);
       setOpenPicker(null);
+      setEditingId(null);
       await load();
     } catch (error) {
-      showToast(getErrorMessage(error, 'Could not create template'), 'error');
+      showToast(getErrorMessage(error, 'Could not save template'), 'error');
     } finally {
       setSaving(false);
     }
@@ -226,8 +277,21 @@ export function DeliverySlotsScreen() {
         <Text style={styles.addBtnText}>Add template</Text>
       </Pressable>
 
+      <View style={styles.tabs}>
+        <Pressable
+          onPress={() => setTab('templates')}
+          style={[styles.tab, tab === 'templates' && styles.tabOn]}>
+          <Text style={[styles.tabText, tab === 'templates' && styles.tabTextOn]}>Templates</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setTab('upcoming')}
+          style={[styles.tab, tab === 'upcoming' && styles.tabOn]}>
+          <Text style={[styles.tabText, tab === 'upcoming' && styles.tabTextOn]}>Upcoming</Text>
+        </Pressable>
+      </View>
+
       <FlatList
-        data={slots}
+        data={tab === 'templates' ? slots : upcoming}
         keyExtractor={(item, index) => String(getEntityId(item) ?? index)}
         contentContainerStyle={styles.list}
         refreshControl={
@@ -242,13 +306,23 @@ export function DeliverySlotsScreen() {
         ListEmptyComponent={
           <AppEmpty
             icon={Clock3}
-            title="No templates yet"
-            subtitle="Create a weekly window so customers can book grocery delivery slots."
-            actionLabel="Add template"
-            onAction={openCreate}
+            title={tab === 'templates' ? 'No templates yet' : 'No upcoming slots'}
+            subtitle={
+              tab === 'templates'
+                ? 'Create a weekly window so customers can book grocery delivery slots.'
+                : 'Generated slots for the next 7 days will appear here.'
+            }
+            actionLabel={tab === 'templates' ? 'Add template' : undefined}
+            onAction={tab === 'templates' ? openCreate : undefined}
           />
         }
-        renderItem={({ item }) => <TemplateCard item={item} />}
+        renderItem={({ item }) =>
+          tab === 'templates' ? (
+            <TemplateCard item={item} onEdit={() => openEdit(item)} onDelete={() => onDelete(item)} />
+          ) : (
+            <UpcomingCard item={item} />
+          )
+        }
       />
 
       <Modal visible={modalOpen} transparent animationType="fade" onRequestClose={closeCreate}>
@@ -258,7 +332,7 @@ export function DeliverySlotsScreen() {
           <Pressable style={styles.overlay} onPress={closeCreate} />
           <View style={styles.dialog}>
             <View style={styles.dialogHead}>
-              <Text style={styles.dialogTitle}>New template</Text>
+              <Text style={styles.dialogTitle}>{editingId ? 'Edit template' : 'New template'}</Text>
               <Pressable onPress={closeCreate} hitSlop={10} style={styles.closeBtn}>
                 <X size={18} color={colors.textSecondary} />
               </Pressable>
@@ -344,7 +418,12 @@ export function DeliverySlotsScreen() {
 
             <View style={styles.dialogFooter}>
               <AppButton title="Cancel" variant="outline" onPress={closeCreate} style={styles.footerBtn} />
-              <AppButton title="Create" onPress={onSubmit} loading={saving} style={styles.footerBtn} />
+              <AppButton
+                title={editingId ? 'Update' : 'Create'}
+                onPress={onSubmit}
+                loading={saving}
+                style={styles.footerBtn}
+              />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -353,7 +432,15 @@ export function DeliverySlotsScreen() {
   );
 }
 
-function TemplateCard({ item }: { item: DeliverySlot }) {
+function TemplateCard({
+  item,
+  onEdit,
+  onDelete,
+}: {
+  item: DeliverySlot;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const day = weekdayMeta(item.dayOfWeek);
   const active = item.isActive !== false;
 
@@ -377,8 +464,52 @@ function TemplateCard({ item }: { item: DeliverySlot }) {
           {item.capacity ?? 0} {Number(item.capacity) === 1 ? 'order' : 'orders'} capacity
         </Text>
       </View>
+      <View style={styles.cardActions}>
+        <Pressable onPress={onEdit} style={styles.cardAction}>
+          <Text style={styles.cardActionText}>Edit</Text>
+        </Pressable>
+        <Pressable onPress={onDelete} style={[styles.cardAction, styles.cardActionDanger]}>
+          <Text style={[styles.cardActionText, styles.cardActionDangerText]}>Delete</Text>
+        </Pressable>
+      </View>
     </View>
   );
+}
+
+function UpcomingCard({ item }: { item: DeliverySlot }) {
+  const dateLabel = pickUpcomingDate(item);
+  const remaining =
+    item.remaining != null
+      ? Number(item.remaining)
+      : Math.max(0, Number(item.capacity ?? 0) - Number((item as { bookedCount?: number }).bookedCount ?? 0));
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.timeRange}>{dateLabel}</Text>
+      <Text style={styles.dayLabel}>
+        {formatSlotTime(item.startTime || String((item as { startAt?: string }).startAt || ''))} –{' '}
+        {formatSlotTime(item.endTime || String((item as { endAt?: string }).endAt || ''))}
+      </Text>
+      <View style={styles.cardMeta}>
+        <Users size={15} color={colors.muted} />
+        <Text style={styles.capacityText}>
+          {remaining} remaining · capacity {item.capacity ?? 0}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function pickUpcomingDate(item: DeliverySlot) {
+  const raw = (item as { date?: string; startAt?: string }).date || (item as { startAt?: string }).startAt;
+  if (!raw) {
+    return 'Upcoming slot';
+  }
+  try {
+    return new Date(raw).toDateString();
+  } catch {
+    return String(raw);
+  }
 }
 
 function TimeField({
@@ -483,6 +614,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: moderateScale(14),
   },
+  tabs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  tab: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabOn: {
+    backgroundColor: colors.brand[50],
+    borderColor: colors.brand[400],
+  },
+  tabText: { color: colors.textSecondary, fontWeight: '700', fontSize: 13 },
+  tabTextOn: { color: colors.brand[800] },
   list: { paddingBottom: 24, gap: 12, flexGrow: 1 },
   card: {
     backgroundColor: colors.surface,
@@ -538,6 +690,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  cardAction: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand[50],
+  },
+  cardActionDanger: { backgroundColor: colors.dangerSoft },
+  cardActionText: { color: colors.brand[800], fontWeight: '700', fontSize: 12 },
+  cardActionDangerText: { color: colors.danger },
   modalRoot: {
     flex: 1,
     justifyContent: 'center',

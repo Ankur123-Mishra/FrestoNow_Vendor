@@ -19,6 +19,7 @@ export const endpoints = {
     productById: (id: string | number) => `/platform/catalog/vendor/products/${id}`,
     productStatus: (id: string | number) => `/platform/catalog/vendor/products/${id}/status`,
     categories: '/platform/catalog/vendor/categories',
+    variantLookup: '/platform/catalog/vendor/variants/lookup',
   },
   brands: '/platform/brands',
   orders: {
@@ -32,6 +33,8 @@ export const endpoints = {
     foodStatus: (id: string | number) => `/food/orders/${id}/status`,
     shipments: (id: string | number) => `/ecommerce/orders/${id}/shipments`,
     shiprocket: (id: string | number) => `/platform/orders/vendor/${id}/shiprocket`,
+    counterInvoices: '/platform/orders/counter-invoices',
+    invoice: (orderId: string | number) => `/platform/orders/${orderId}/invoice`,
   },
   delivery: {
     track: (id: string | number) => `/delivery/track/${id}`,
@@ -43,6 +46,7 @@ export const endpoints = {
   slots: {
     vendor: '/platform/slots/vendor',
     templates: '/platform/slots/vendor/templates',
+    templateById: (id: string | number) => `/platform/slots/vendor/templates/${id}`,
   },
   returns: {
     list: '/platform/returns/vendor',
@@ -53,18 +57,26 @@ export const endpoints = {
     list: '/platform/coupons/vendor',
     byId: (id: string | number) => `/platform/coupons/vendor/${id}`,
   },
+  reviews: {
+    product: '/platform/reviews/vendor',
+    order: '/order-reviews/vendor',
+  },
   wallet: {
     history: '/wallet/history',
     balance: '/wallet/balance',
+    summary: '/wallet/summary',
   },
   finance: {
     ledger: '/finance/ledger',
+    balance: '/finance/balance',
     payouts: '/finance/payouts',
   },
   food: {
     sections: '/food/vendor/sections',
     sectionById: (id: string | number) => `/food/vendor/sections/${id}`,
     modifierGroups: '/food/vendor/modifier-groups',
+    modifierGroupById: (id: string | number) => `/food/vendor/modifier-groups/${id}`,
+    attributes: '/food/vendor/attributes',
     attachModifier: (itemId: string | number, groupId: string | number) =>
       `/food/vendor/items/${itemId}/modifier-groups/${groupId}`,
     itemProfile: (id: string | number) => `/food/vendor/items/${id}/profile`,
@@ -75,6 +87,8 @@ export const endpoints = {
     tableById: (tableId: string | number) => `/food/vendor/tables/${tableId}`,
     openCheck: (tableId: string | number) => `/food/vendor/tables/${tableId}/open-check`,
     tableItems: (tableId: string | number) => `/food/vendor/tables/${tableId}/items`,
+    tableItemById: (tableId: string | number, itemId: string | number) =>
+      `/food/vendor/tables/${tableId}/items/${itemId}`,
     settle: (tableId: string | number) => `/food/vendor/tables/${tableId}/settle`,
     cancelCheck: (tableId: string | number) => `/food/vendor/tables/${tableId}/cancel-check`,
     markCleaned: (tableId: string | number) => `/food/vendor/tables/${tableId}/mark-cleaned`,
@@ -85,7 +99,18 @@ export const endpoints = {
     reservationById: (id: string | number) => `/food/vendor/reservations/${id}`,
     seatReservation: (id: string | number) => `/food/vendor/reservations/${id}/seat`,
     staff: '/food/vendor/staff',
+    staffById: (id: string | number) => `/food/vendor/staff/${id}`,
+    staffRoles: '/food/vendor/staff/roles',
     waiters: '/food/vendor/staff/waiters',
+    shifts: '/food/vendor/shifts',
+    shiftsCurrent: '/food/vendor/shifts/current',
     shiftsOpen: '/food/vendor/shifts/open',
+    shiftById: (id: string | number) => `/food/vendor/shifts/${id}`,
+    shiftClose: (id: string | number) => `/food/vendor/shifts/${id}/close`,
+    shiftReport: (id: string | number) => `/food/vendor/shifts/${id}/report`,
+    shiftCashMovements: (id: string | number) => `/food/vendor/shifts/${id}/cash-movements`,
+    billingOrder: (id: string | number) => `/food/vendor/billing/orders/${id}`,
+    billingPreview: (id: string | number) => `/food/vendor/billing/orders/${id}/preview`,
+    billingReceipt: (id: string | number) => `/food/vendor/billing/orders/${id}/receipt`,
   },
 } as const;

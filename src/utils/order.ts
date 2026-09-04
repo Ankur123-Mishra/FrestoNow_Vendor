@@ -169,6 +169,32 @@ export function getOrderItemCustomizations(item: OrderItem): string[] {
     .filter(Boolean);
 }
 
+export function getOrderItemAddonLabels(item: OrderItem): string[] {
+  const fromRel = (item.foodModifiers ?? [])
+    .map(mod => pickString(mod.optionName))
+    .filter(Boolean);
+  if (fromRel.length) {
+    return fromRel;
+  }
+  const metadata = asRecord(item.metadata);
+  const fromMeta = (Array.isArray(metadata?.modifiers) ? metadata.modifiers : [])
+    .map(entry => {
+      const rec = asRecord(entry);
+      return rec ? pickString(rec.optionName, rec.name, rec.label) : '';
+    })
+    .filter(Boolean);
+  if (fromMeta.length) {
+    return fromMeta;
+  }
+  return getOrderItemCustomizations(item);
+}
+
+export function getOrderItemDisplayName(item: OrderItem): string {
+  const name = getOrderItemName(item);
+  const addons = getOrderItemAddonLabels(item);
+  return addons.length ? `${name} (${addons.join(', ')})` : name;
+}
+
 export function getOrderAddress(order: Order): OrderAddress | null {
   return asRecord(order.address) as OrderAddress | null;
 }

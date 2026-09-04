@@ -25,6 +25,7 @@ export type AppStackParamList = {
   OrderDetail: { orderId: string | number };
   VendorDetails: undefined;
   VendorProfile: undefined;
+  StoreProfile: undefined;
   Returns: undefined;
   Inventory: undefined;
   InventoryEdit: { inventoryId: string | number };
@@ -36,10 +37,23 @@ export type AppStackParamList = {
   FloorsTables: undefined;
   TableCheck: { tableId: string | number; tableName?: string };
   PosOrder: undefined;
+  CounterPos: undefined;
+  CashShift: undefined;
+  StaffManage: undefined;
   Reservations: undefined;
   StaffShifts: undefined;
   MenuSections: undefined;
+  MenuAvailability: undefined;
   DeliveryTracking: undefined;
+  Reports: undefined;
+  Invoices: undefined;
+  InvoicePreview: {
+    orderId: string | number;
+    format: 'html' | 'thermal';
+    orderNumber?: string;
+  };
+  ProductReviews: undefined;
+  OrderReviews: undefined;
 };
 
 export type RootStackParamList = AuthStackParamList & AppStackParamList;
@@ -58,4 +72,5 @@ export type InventoryEditRoute = RouteProp<AppStackParamList, 'InventoryEdit'>;
 export type CouponFormRoute = RouteProp<AppStackParamList, 'CouponForm'>;
 export type KitchenOrderDetailRoute = RouteProp<AppStackParamList, 'KitchenOrderDetail'>;
 export type TableCheckRoute = RouteProp<AppStackParamList, 'TableCheck'>;
+export type InvoicePreviewRoute = RouteProp<AppStackParamList, 'InvoicePreview'>;
 export type RegisterRoute = RouteProp<AuthStackParamList, 'Register'>;

@@ -4,10 +4,14 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   Armchair,
   Ban,
+  BarChart3,
   Bike,
   CalendarClock,
   CircleCheck,
+  Clock3,
+  FileText,
   IndianRupee,
+  PackagePlus,
   Percent,
   ShoppingBag,
   Store,
@@ -161,6 +165,76 @@ export function DashboardScreen() {
                 <CalendarClock size={20} color={colors.brand[700]} />
                 <Text style={styles.opsTitle}>Reservations</Text>
                 <Text style={styles.opsMeta}>Book and seat guests</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('CashShift')}>
+                <Clock3 size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Cash shift</Text>
+                <Text style={styles.opsMeta}>Open and close drawer</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('Reports')}>
+                <BarChart3 size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Reports</Text>
+                <Text style={styles.opsMeta}>Sales overview</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {activeModule === 'GROCERY' ? (
+          <>
+            <SectionTitle title="Grocery ops" />
+            <View style={styles.opsGrid}>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('StoreProfile')}>
+                <Store size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>My store</Text>
+                <Text style={styles.opsMeta}>Hours and FSSAI</Text>
+              </Pressable>
+              {/* Hidden for grocery — Counter POS
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('CounterPos')}>
+                <Store size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Counter POS</Text>
+                <Text style={styles.opsMeta}>Walk-in billing</Text>
+              </Pressable>
+              */}
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('DeliverySlots')}>
+                <Clock3 size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Delivery slots</Text>
+                <Text style={styles.opsMeta}>Templates & windows</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('Invoices')}>
+                <FileText size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Invoices</Text>
+                <Text style={styles.opsMeta}>GST bills</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {activeModule === 'ECOMMERCE' ? (
+          <>
+            <SectionTitle title="Quick actions" />
+            <View style={styles.opsGrid}>
+              {/* Hidden for ecommerce — Counter POS
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('CounterPos')}>
+                <Store size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Counter POS</Text>
+                <Text style={styles.opsMeta}>Walk-in GST bill</Text>
+              </Pressable>
+              */}
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('ProductForm')}>
+                <PackagePlus size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Add product</Text>
+                <Text style={styles.opsMeta}>Create catalog item</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('Coupons')}>
+                <Percent size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Offers</Text>
+                <Text style={styles.opsMeta}>Manage coupons</Text>
+              </Pressable>
+              <Pressable style={styles.opsCard} onPress={() => navigation.navigate('Reports')}>
+                <BarChart3 size={20} color={colors.brand[700]} />
+                <Text style={styles.opsTitle}>Reports</Text>
+                <Text style={styles.opsMeta}>Sales overview</Text>
               </Pressable>
             </View>
           </>

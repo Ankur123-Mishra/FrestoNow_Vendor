@@ -193,12 +193,13 @@ export function kitchenBucketLabel(bucket: KitchenBucket | 'ALL') {
       NEW: 'New',
       PREPARING: 'Preparing',
       READY: 'Ready',
-      PICKED: 'On the way',
+      PICKED: 'Done',
     }[bucket] ?? bucket
   );
 }
 
 const CANCEL: VendorOrderAction = { action: 'CANCEL', label: 'Cancel', danger: true };
+const REJECT: VendorOrderAction = { action: 'REJECT', label: 'Reject', danger: true };
 
 export function getOrderActions(moduleType: ModuleType | null | undefined, order: OrderLike): VendorOrderAction[] {
   const status = String(order.status || '').toUpperCase();
@@ -220,18 +221,16 @@ export function getOrderActions(moduleType: ModuleType | null | undefined, order
   }
 
   if (moduleType === 'FOOD') {
-    if (status === 'PENDING' && allItemsHaveStatus(order, 'ORDERED')) {
-      return [{ action: 'ACCEPT', label: 'Accept' }, CANCEL];
-    }
+    // New tickets + re-queued batches (items_added → PENDING again) need ACCEPT.
     if (status === 'PENDING') {
-      return [CANCEL];
+      return [{ action: 'ACCEPT', label: 'Accept' }, REJECT];
     }
     if (status === 'CONFIRMED' && allItemsHaveStatus(order, 'DISPATCHED')) {
       if (isPickupChannel(order.orderChannel)) {
-        return [{ action: 'COLLECT', label: 'Collected' }, CANCEL];
+        return [{ action: 'COLLECT', label: 'Collected' }, REJECT];
       }
       if (isDineInChannel(order.orderChannel)) {
-        return [{ action: 'SERVED', label: 'Served' }, CANCEL];
+        return [{ action: 'SERVED', label: 'Served' }, REJECT];
       }
       return [{ action: 'OUT_FOR_DELIVERY', label: 'Hand to rider' }, CANCEL];
     }
@@ -242,10 +241,10 @@ export function getOrderActions(moduleType: ModuleType | null | undefined, order
         return itemStatus === 'PROCESSING' || itemStatus === 'ORDERED';
       })
     ) {
-      return [{ action: 'READY', label: 'Mark ready' }, CANCEL];
+      return [{ action: 'READY', label: 'Mark ready' }, REJECT];
     }
     if (status === 'CONFIRMED' && allItemsHaveStatus(order, 'PROCESSING')) {
-      return [{ action: 'READY', label: 'Mark ready' }, CANCEL];
+      return [{ action: 'READY', label: 'Mark ready' }, REJECT];
     }
     if (status === 'SHIPPED' && allItemsHaveStatus(order, 'OUT_FOR_DELIVERY')) {
       return [{ action: 'DELIVER', label: 'Delivered' }];

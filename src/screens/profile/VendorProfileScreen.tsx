@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { Building2, Landmark, MapPin, UserRound, Wallet } from 'lucide-react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Building2, Landmark, MapPin, Pencil, UserRound, Wallet } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { AppBadge } from '@/components/ui/AppBadge';
 import { AppCard } from '@/components/ui/AppCard';
@@ -14,7 +14,7 @@ import { useToastStore } from '@/store/toastStore';
 import { colors, radius, shadows } from '@/theme';
 import { extractAccount, getErrorMessage } from '@/utils/apiHelpers';
 import { formatCurrency, formatDate, pickString, titleCaseStatus } from '@/utils/format';
-import type { VendorAccount, VendorUser } from '@/types';
+import type { AppNavigation, VendorAccount, VendorUser } from '@/types';
 
 function displayValue(value?: string | number | null, fallback = 'Not added') {
   if (value === null || value === undefined || value === '') {
@@ -42,6 +42,7 @@ function InfoRow({
 }
 
 export function VendorProfileScreen() {
+  const navigation = useNavigation<AppNavigation>();
   const user = useAuthStore(s => s.user);
   const setUser = useAuthStore(s => s.setUser);
   const showToast = useToastStore(s => s.show);
@@ -99,7 +100,17 @@ export function VendorProfileScreen() {
 
   return (
     <Screen>
-      <AppHeader title="Account" subtitle="Vendor profile and shop details" showBack />
+      <AppHeader
+        title="Account"
+        subtitle="Vendor profile and shop details"
+        showBack
+        right={
+          <Pressable onPress={() => navigation.navigate('VendorDetails')} style={styles.editBtn}>
+            <Pencil size={14} color={colors.brand[700]} />
+            <Text style={styles.editText}>Edit</Text>
+          </Pressable>
+        }
+      />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
@@ -243,4 +254,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.brand[50],
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+  },
+  editText: { color: colors.brand[700], fontWeight: '700', fontSize: 12 },
 });

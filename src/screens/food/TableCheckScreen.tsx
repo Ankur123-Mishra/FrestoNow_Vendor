@@ -3,6 +3,8 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Minus, Plus, Trash2 } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
+import { AddonPickerModal } from '@/components/food/AddonPickerModal';
+import { PosMenuProductCard } from '@/components/food/PosMenuProductCard';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { AppInput } from '@/components/ui/AppInput';
@@ -16,12 +18,27 @@ import { colors, radius } from '@/theme';
 import { asArray, getEntityId, getErrorMessage, unwrapPayload } from '@/utils/apiHelpers';
 import { formatCurrency, pickString } from '@/utils/format';
 import { productIsSellable, productUnitPrice, tableCode, tableStatusStyle } from '@/utils/foodTables';
-import { getOrderItemName, getOrderItemQty, getOrderItems, getOrderTotal } from '@/utils/order';
+import { getPosMenuAvailability } from '@/utils/posMenuAvailability';
+import {
+  buildPosModifierGroups,
+  cartLineKey,
+  productShowsAddons,
+  type AddonSelectionResult,
+  type ModifierGroupRule,
+} from '@/utils/posModifiers';
+import {
+  getOrderItemDisplayName,
+  getOrderItemQty,
+  getOrderItems,
+  getOrderTotal,
+} from '@/utils/order';
 import type {
   AppNavigation,
   Category,
   FoodFloor,
+  FoodModifierGroup,
   FoodTable,
+  Order,
   Product,
   TableCheckRoute,
 } from '@/types';
@@ -33,6 +50,8 @@ type CartLine = {
   name: string;
   unitPrice: number;
   quantity: number;
+  modifierOptionIds: number[];
+  addonLabels: string[];
 };
 
 export function TableCheckScreen() {
@@ -55,13 +74,23 @@ export function TableCheckScreen() {
   const [guestPhone, setGuestPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<FoodPaymentMode>('CASH');
   const [paymentReference, setPaymentReference] = useState('');
+  const [waiterName, setWaiterName] = useState('');
+  const [discount, setDiscount] = useState('0');
+  const [tipAmount, setTipAmount] = useState('0');
+  const [serviceCharge, setServiceCharge] = useState('0');
+  const [addonGroupsStore, setAddonGroupsStore] = useState<FoodModifierGroup[]>([]);
+  const [addonProduct, setAddonProduct] = useState<Product | null>(null);
+  const [addonGroups, setAddonGroups] = useState<ModifierGroupRule[]>([]);
+  const [addonOpen, setAddonOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | number | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [floorsRes, productsRes, categoriesRes] = await Promise.all([
+      const [floorsRes, productsRes, categoriesRes, addonsRes] = await Promise.all([
         foodService.getFloors(),
         productService.getMine({ limit: 100 }),
         categoryService.getAll(),
+        foodService.getModifierGroups(),
       ]);
       const floors = asArray<FoodFloor>(unwrapPayload(floorsRes.data));
       let found: FoodTable | null = null;
@@ -80,11 +109,16 @@ export function TableCheckScreen() {
       setFloorName(foundFloor);
       setProducts(asArray<Product>(unwrapPayload(productsRes.data)).filter(productIsSellable));
       setCategories(asArray<Category>(unwrapPayload(categoriesRes.data)));
+      setAddonGroupsStore(asArray<FoodModifierGroup>(unwrapPayload(addonsRes.data)));
       const open = found?.openOrder;
       if (open) {
         setCovers(String(open.covers || 2));
         setGuestName(pickString(open.guestCustomer?.name, open.customerName));
         setGuestPhone(pickString(open.guestCustomer?.phone));
+        setWaiterName(pickString(open.waiterName));
+        setDiscount(String(open.discount ?? 0));
+        setTipAmount(String(open.tipAmount ?? 0));
+        setServiceCharge(String(open.serviceCharge ?? 0));
       }
     } catch (error) {
       showToast(getErrorMessage(error, 'Could not load table'), 'error');
@@ -101,7 +135,17 @@ export function TableCheckScreen() {
   const status = String(table?.status || 'FREE').toUpperCase();
   const isOpenStatus = status === 'OCCUPIED' || status === 'BILLING';
   const isFreeStatus = status === 'FREE' || status === 'RESERVED';
-  const openOrder = table?.openOrder ?? null;
+  const baseOpenOrder = table?.openOrder ?? null;
+  const sessionOrders = asArray<Order>(baseOpenOrder?.sessionOrders ?? table?.sessionOrders);
+  const openOrder = useMemo(() => {
+    if (!baseOpenOrder) {
+      return null;
+    }
+    if (selectedOrderId && sessionOrders.length > 0) {
+      return sessionOrders.find(order => String(order.id) === String(selectedOrderId)) || baseOpenOrder;
+    }
+    return baseOpenOrder;
+  }, [baseOpenOrder, selectedOrderId, sessionOrders]);
   const style = tableStatusStyle(status);
   const code = table ? tableCode(table) : pickString(route.params.tableName, `Table ${tableId}`);
 
@@ -127,31 +171,60 @@ export function TableCheckScreen() {
   const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
 
   const addProduct = (product: Product) => {
+    const avail = getPosMenuAvailability(product);
+    if (avail.unavailable) {
+      showToast(avail.stockLabel || 'Item unavailable', 'error');
+      return;
+    }
     const priced = productUnitPrice(product);
     if (!priced) {
       showToast('This item has no sellable variant', 'error');
       return;
     }
-    const key = `${product.id}:${priced.variantId ?? ''}`;
+    const groups = buildPosModifierGroups(product, addonGroupsStore);
+    if (groups.length > 0) {
+      setAddonProduct(product);
+      setAddonGroups(groups);
+      setAddonOpen(true);
+      return;
+    }
+    pushCartLine({
+      productId: product.id,
+      variantId: priced.variantId,
+      name: pickString(product.name, 'Item'),
+      unitPrice: priced.price,
+      quantity: 1,
+      modifierOptionIds: [],
+      addonLabels: [],
+    });
+  };
+
+  const pushCartLine = (line: Omit<CartLine, 'key'>) => {
+    const key = cartLineKey(line.productId, line.variantId, line.modifierOptionIds);
     setCart(prev => {
-      const existing = prev.find(line => line.key === key);
+      const existing = prev.find(item => item.key === key);
       if (existing) {
-        return prev.map(line =>
-          line.key === key ? { ...line, quantity: line.quantity + 1 } : line,
+        return prev.map(item =>
+          item.key === key ? { ...item, quantity: item.quantity + line.quantity } : item,
         );
       }
-      return [
-        ...prev,
-        {
-          key,
-          productId: product.id,
-          variantId: priced.variantId,
-          name: pickString(product.name, 'Item'),
-          unitPrice: priced.price,
-          quantity: 1,
-        },
-      ];
+      return [...prev, { ...line, key }];
     });
+  };
+
+  const confirmAddon = (result: AddonSelectionResult) => {
+    pushCartLine({
+      productId: result.productId,
+      variantId: result.variantId,
+      name: result.name,
+      unitPrice: result.unitPrice,
+      quantity: result.quantity,
+      modifierOptionIds: result.modifierOptionIds,
+      addonLabels: result.addonLabels,
+    });
+    setAddonOpen(false);
+    setAddonProduct(null);
+    setAddonGroups([]);
   };
 
   const setQty = (key: string, quantity: number) => {
@@ -163,6 +236,7 @@ export function TableCheckScreen() {
       productId: line.productId,
       quantity: line.quantity,
       ...(line.variantId != null ? { variantId: line.variantId } : {}),
+      ...(line.modifierOptionIds.length ? { modifierOptionIds: line.modifierOptionIds } : {}),
     }));
 
   const run = async (work: () => Promise<unknown>, success: string, after?: () => void) => {
@@ -191,20 +265,17 @@ export function TableCheckScreen() {
       showToast('Guest phone (min 10 digits) is required', 'error');
       return;
     }
-    if (!cart.length) {
-      showToast('Add at least one item to open the check', 'error');
-      return;
-    }
     void run(
       () =>
         foodService.openCheck(tableId, {
           covers: Number(covers) || 1,
           guestName: name,
           guestPhone: guestPhone.trim(),
+          waiterName: waiterName.trim() || undefined,
           version: table?.version,
           items: cartPayload(),
         }),
-      'Check opened',
+      cart.length ? 'Check opened · kitchen notified' : 'Table seated (empty check)',
       () => setCart([]),
     );
   };
@@ -216,8 +287,59 @@ export function TableCheckScreen() {
     }
     void run(
       () => foodService.addTableItems(tableId, cartPayload()),
-      'Items sent to kitchen',
+      'Batch sent to kitchen',
       () => setCart([]),
+    );
+  };
+
+  const canVoidItem = (status?: string | null) => {
+    const value = String(status || '').toUpperCase();
+    return value === 'ORDERED' || value === 'PROCESSING';
+  };
+
+  const onVoidItem = (itemId: string | number, label: string) => {
+    Alert.alert(`Void ${label}?`, 'Only works before the line is READY.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Void',
+        style: 'destructive',
+        onPress: () =>
+          void run(
+            () =>
+              foodService.voidTableItem(tableId, itemId, {
+                reason: 'Guest changed mind',
+              }),
+            'Line voided',
+          ),
+      },
+    ]);
+  };
+
+  const onAdjustBill = () => {
+    if (!openOrder) {
+      return;
+    }
+    void run(
+      () =>
+        foodService.adjustBill(openOrder.id, {
+          discount: Number(discount) || 0,
+          discountType: 'FLAT',
+          discountReason: Number(discount) > 0 ? 'Manager adjustment' : undefined,
+          tipAmount: Number(tipAmount) || 0,
+          serviceCharge: Number(serviceCharge) || 0,
+        }),
+      'Bill adjusted',
+    );
+  };
+
+  const onAssignWaiter = () => {
+    if (!waiterName.trim()) {
+      showToast('Enter waiter name', 'error');
+      return;
+    }
+    void run(
+      () => foodService.assignWaiter(tableId, { waiterName: waiterName.trim() }),
+      `Waiter → ${waiterName.trim()}`,
     );
   };
 
@@ -231,7 +353,10 @@ export function TableCheckScreen() {
           paymentMethod,
           paymentReference: paymentReference.trim() || undefined,
           version: table?.version,
-          orderId: openOrder.id,
+          orderId: selectedOrderId || openOrder.id,
+          discount: Number(discount) || undefined,
+          tipAmount: Number(tipAmount) || undefined,
+          serviceCharge: Number(serviceCharge) || undefined,
         }),
       `Table ${code} settled`,
       () => navigation.goBack(),
@@ -326,7 +451,23 @@ export function TableCheckScreen() {
               placeholder="10-digit mobile"
             />
             <AppInput label="Covers" value={covers} onChangeText={setCovers} keyboardType="number-pad" />
+            <AppInput
+              label="Waiter"
+              value={waiterName}
+              onChangeText={setWaiterName}
+              placeholder="Optional"
+              optional
+            />
+            {!cart.length ? (
+              <AppButton title="Open empty check" loading={busy} onPress={onOpenCheck} variant="outline" />
+            ) : null}
           </View>
+        ) : null}
+
+        {isOpenStatus && (guestName || guestPhone) ? (
+          <Text style={styles.guestOnCheck}>
+            {[guestName, guestPhone].filter(Boolean).join(' · ')}
+          </Text>
         ) : null}
 
         <View style={styles.card}>
@@ -346,28 +487,29 @@ export function TableCheckScreen() {
           {visibleProducts.length === 0 ? (
             <Text style={styles.meta}>No menu items match.</Text>
           ) : (
-            visibleProducts.map(product => {
-              const priced = productUnitPrice(product);
-              return (
-                <Pressable key={String(product.id)} style={styles.menuRow} onPress={() => addProduct(product)}>
-                  <View style={styles.flex}>
-                    <Text style={styles.menuName}>{pickString(product.name, 'Item')}</Text>
-                    <Text style={styles.meta}>{formatCurrency(priced?.price)}</Text>
-                  </View>
-                  <Plus size={18} color={colors.brand[700]} />
-                </Pressable>
-              );
-            })
+            <View style={styles.menuGrid}>
+              {visibleProducts.map(product => (
+                <PosMenuProductCard
+                  key={String(product.id)}
+                  product={product}
+                  hasAddons={productShowsAddons(product, addonGroupsStore)}
+                  onAdd={addProduct}
+                />
+              ))}
+            </View>
           )}
         </View>
 
         {cart.length ? (
           <View style={styles.card}>
-            <Text style={styles.heading}>Ticket · {itemCount} items</Text>
+            <Text style={styles.heading}>To send · {itemCount} items</Text>
             {cart.map(line => (
               <View key={line.key} style={styles.cartRow}>
                 <View style={styles.flex}>
-                  <Text style={styles.menuName}>{line.name}</Text>
+                  <Text style={styles.menuName}>{isOpenStatus ? `+ ${line.name}` : line.name}</Text>
+                  {line.addonLabels.length ? (
+                    <Text style={styles.meta}>{line.addonLabels.join(' · ')}</Text>
+                  ) : null}
                   <Text style={styles.meta}>{formatCurrency(line.unitPrice * line.quantity)}</Text>
                 </View>
                 <View style={styles.qtyRow}>
@@ -381,30 +523,76 @@ export function TableCheckScreen() {
                 </View>
               </View>
             ))}
-            <Text style={styles.total}>Cart {formatCurrency(cartTotal)}</Text>
+            <Text style={styles.total}>Draft {formatCurrency(cartTotal)}</Text>
             {isFreeStatus ? (
-              <AppButton title="Open check" loading={busy} onPress={onOpenCheck} />
-            ) : (
+              <AppButton title="Open check + send kitchen" loading={busy} onPress={onOpenCheck} />
+            ) : isOpenStatus ? (
               <AppButton title="Send to kitchen" loading={busy} onPress={onAddItems} />
-            )}
+            ) : null}
           </View>
         ) : null}
 
         {isOpenStatus && openOrder ? (
           <View style={styles.card}>
             <Text style={styles.heading}>Open check</Text>
+            <Text style={styles.meta}>
+              Channel {pickString(openOrder.orderChannel, 'DINE_IN')} · pay{' '}
+              {pickString(openOrder.paymentMode, 'OPEN_CHECK')} ·{' '}
+              {pickString(openOrder.orderStatus, openOrder.status)}
+            </Text>
+            {sessionOrders.length > 1 ? (
+              <View style={styles.chips}>
+                <Chip
+                  label="All merged"
+                  selected={selectedOrderId == null}
+                  onPress={() => setSelectedOrderId(null)}
+                />
+                {sessionOrders.map((order, idx) => (
+                  <Chip
+                    key={String(order.id ?? idx)}
+                    label={`${pickString(order.guestCustomer?.name, `Guest ${idx + 1}`)} · ${formatCurrency(getOrderTotal(order))}`}
+                    selected={String(selectedOrderId) === String(order.id)}
+                    onPress={() => setSelectedOrderId(order.id)}
+                  />
+                ))}
+              </View>
+            ) : null}
             {ticketItems.length ? (
-              ticketItems.map((item, index) => (
-                <View key={String(item.id ?? index)} style={styles.ticketRow}>
-                  <Text style={styles.menuName}>
-                    {getOrderItemQty(item)}× {getOrderItemName(item)}
-                  </Text>
-                  <Text style={styles.meta}>{titleCaseSafe(item.orderItemStatus)}</Text>
-                </View>
-              ))
+              ticketItems.map((item, index) => {
+                const itemId = item.id;
+                const voidable = itemId != null && canVoidItem(item.orderItemStatus);
+                return (
+                  <View key={String(itemId ?? index)} style={styles.ticketRow}>
+                    <View style={styles.flex}>
+                      <Text style={styles.menuName}>
+                        {getOrderItemQty(item)}× {getOrderItemDisplayName(item)}
+                      </Text>
+                      <Text style={styles.meta}>{titleCaseSafe(item.orderItemStatus)}</Text>
+                    </View>
+                    {voidable ? (
+                      <Pressable
+                        onPress={() => onVoidItem(itemId, getOrderItemDisplayName(item))}
+                        style={styles.voidBtn}
+                        hitSlop={8}>
+                        <Trash2 size={16} color={colors.danger} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                );
+              })
             ) : (
-              <Text style={styles.meta}>No items on this check yet.</Text>
+              <Text style={styles.meta}>No items yet — add a batch below and send to kitchen.</Text>
             )}
+
+            <Text style={styles.heading}>Waiter</Text>
+            <AppInput
+              label="Assigned waiter"
+              value={waiterName}
+              onChangeText={setWaiterName}
+              placeholder="Name"
+            />
+            <AppButton title="Save waiter" variant="outline" loading={busy} onPress={onAssignWaiter} />
+
             <View style={styles.actionCol}>
               <AppButton
                 title="Request bill"
@@ -430,6 +618,31 @@ export function TableCheckScreen() {
               />
               <AppButton title="Cancel check" variant="danger" loading={busy} onPress={onCancel} />
             </View>
+
+            <Text style={styles.heading}>Bill adjust</Text>
+            <AppInput
+              label="Discount (flat)"
+              value={discount}
+              onChangeText={setDiscount}
+              keyboardType="decimal-pad"
+              optional
+            />
+            <AppInput
+              label="Tip"
+              value={tipAmount}
+              onChangeText={setTipAmount}
+              keyboardType="decimal-pad"
+              optional
+            />
+            <AppInput
+              label="Service charge"
+              value={serviceCharge}
+              onChangeText={setServiceCharge}
+              keyboardType="decimal-pad"
+              optional
+            />
+            <AppButton title="Apply adjustments" variant="outline" loading={busy} onPress={onAdjustBill} />
+
             <Text style={styles.heading}>Settle</Text>
             <View style={styles.chips}>
               {FOOD_PAYMENT_MODES.map(mode => (
@@ -448,10 +661,23 @@ export function TableCheckScreen() {
               placeholder="UPI / card ref"
               optional
             />
-            <AppButton title="Settle check" loading={busy} onPress={onSettle} />
+            <AppButton title="Settle check → cleaning" loading={busy} onPress={onSettle} />
           </View>
         ) : null}
       </ScrollView>
+      <AddonPickerModal
+        open={addonOpen}
+        product={addonProduct}
+        groups={addonGroups}
+        basePrice={addonProduct ? productUnitPrice(addonProduct)?.price ?? 0 : 0}
+        variantId={addonProduct ? productUnitPrice(addonProduct)?.variantId : undefined}
+        onClose={() => {
+          setAddonOpen(false);
+          setAddonProduct(null);
+          setAddonGroups([]);
+        }}
+        onConfirm={confirmAddon}
+      />
     </Screen>
   );
 }
@@ -479,14 +705,8 @@ const styles = StyleSheet.create({
   },
   heading: { fontWeight: '800', fontSize: 16, color: colors.text, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    gap: 8,
-  },
+  guestOnCheck: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: -4 },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   menuName: { fontWeight: '700', color: colors.text },
   meta: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
   flex: { flex: 1 },
@@ -512,10 +732,21 @@ const styles = StyleSheet.create({
   total: { fontWeight: '800', color: colors.brand[800], marginVertical: 8, fontSize: 15 },
   ticketRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
+    gap: 8,
+  },
+  voidBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   actionCol: { gap: 8, marginVertical: 10 },
 });

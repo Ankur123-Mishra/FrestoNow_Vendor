@@ -1,4 +1,5 @@
 import type { FoodTableStatus, Product } from '@/types';
+import { resolveMediaUrl } from '@/utils/media';
 
 export const TABLE_STATUS_STYLE: Record<
   FoodTableStatus,
@@ -47,4 +48,10 @@ export function productUnitPrice(product: Product): { variantId?: number | strin
 
 export function productIsSellable(product: Product) {
   return product.is_active !== false;
+}
+
+export function productImageUrl(product: Product) {
+  const thumb = typeof product.thumbnail_img === 'string' ? product.thumbnail_img : undefined;
+  const first = Array.isArray(product.images) ? product.images.find(item => typeof item === 'string') : undefined;
+  return resolveMediaUrl(thumb || first);
 }

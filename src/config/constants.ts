@@ -48,6 +48,34 @@ export const FOOD_TAG_OPTIONS = [
   'Must Try',
 ] as const;
 
+export const FOOD_ALLERGEN_OPTIONS = [
+  'Milk',
+  'Gluten',
+  'Soy',
+  'Nuts',
+  'Peanuts',
+  'Egg',
+  'Other',
+] as const;
+
+export const FOOD_ITEM_TYPE_OPTIONS = [
+  { value: 'SINGLE', label: 'Single item' },
+  { value: 'COMBO', label: 'Combo / meal' },
+] as const;
+
+export const FOOD_SERVING_UNIT_OPTIONS = [
+  'piece',
+  'plate',
+  'gram',
+  'kg',
+  'ml',
+  'litre',
+  'serving',
+  'L',
+  'g',
+  'pieces',
+] as const;
+
 /** Raw statuses the vendor sends to PUT /vendor/update-order-item-status. */
 export const ORDER_ITEM_STATUSES = [
   'PROCESSING',
@@ -76,6 +104,9 @@ export const FOOD_PAYMENT_MODES = ['CASH', 'UPI', 'CARD'] as const;
 
 export const FOOD_FULFILLMENT_TYPES = ['TAKEAWAY', 'DINE_IN', 'DELIVERY'] as const;
 
+/** Counter POS channels (no table) — matches ROS POST /pos/orders. */
+export const FOOD_POS_CHANNELS = ['TAKEAWAY', 'SELF_PICKUP'] as const;
+
 export type OrderAction = (typeof ORDER_ACTIONS)[number];
 export type FoodKitchenAction = (typeof FOOD_KITCHEN_ACTIONS)[number];
 export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
@@ -84,3 +115,4 @@ export type CouponType = (typeof COUPON_TYPES)[number];
 export type PosRefundScope = (typeof POS_REFUND_SCOPES)[number];
 export type FoodPaymentMode = (typeof FOOD_PAYMENT_MODES)[number];
 export type FoodFulfillmentType = (typeof FOOD_FULFILLMENT_TYPES)[number];
+export type FoodPosChannel = (typeof FOOD_POS_CHANNELS)[number];

@@ -47,6 +47,9 @@ function appendProductForm(
   form.append('productOptions', JSON.stringify(payload.productOptions ?? []));
   form.append('productSpecs', JSON.stringify(payload.productSpecs ?? []));
   form.append('variants', JSON.stringify(payload.variants ?? []));
+  if (payload.groceryProfile) {
+    form.append('groceryProfile', JSON.stringify(payload.groceryProfile));
+  }
   if (thumbnail?.uri) {
     appendFile(form, 'thumbnail_img', thumbnail, 'thumbnail.jpg');
   }

@@ -5,6 +5,7 @@ import { AuthStack } from '@/navigation/AuthStack';
 import { AppStack } from '@/navigation/AppStack';
 import { AppLoader } from '@/components/ui/AppLoader';
 import { ToastHost } from '@/components/ui/ToastHost';
+import { NewOrderAlerts } from '@/features/kitchenAlerts/NewOrderAlerts';
 import { useAuthStore } from '@/store/authStore';
 import { useModuleStore } from '@/store/moduleStore';
 import { colors } from '@/theme';
@@ -31,6 +32,7 @@ export function RootNavigator() {
     <NavigationContainer>
       <StatusBar barStyle="dark-content" />
       {token ? <AppStack /> : <AuthStack />}
+      {token ? <NewOrderAlerts /> : null}
       <ToastHost />
     </NavigationContainer>
   );
