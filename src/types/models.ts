@@ -510,19 +510,53 @@ export interface ShiprocketPayload {
   weight: number;
 }
 
+export interface RegisterStorePayload {
+  moduleType: 'FOOD' | 'GROCERY';
+  displayName: string;
+  storeType: string;
+  contactPhone: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  latitude: number;
+  longitude: number;
+  openTime: string;
+  closeTime: string;
+  fssaiLicenseNo?: string;
+  deliveryRadiusKm?: number;
+  avgPrepTimeMins?: number;
+  minOrderValue?: number;
+  description?: string;
+  hasColdStorage?: boolean;
+  expressDelivery?: boolean;
+}
+
+export interface RegisterStoreMedia {
+  logo?: PickedImage | null;
+  cover?: PickedImage | null;
+  fssai?: PickedImage | null;
+}
+
 export interface RegisterPayload {
   name: string;
   shopname: string;
   email: string;
   phone: string;
   password: string;
-  moduleType: string;
+  /** Primary module for local preference; API uses `services`. */
+  moduleType?: string;
   services: string[];
+  gst_no?: string;
+  eid_no?: string;
   pickup_location: string;
   pickup_pin_code: string;
   bank_name: string;
   bank_account_no: string;
   bank_ifsc: string;
+  stores?: RegisterStorePayload[];
+  foodMedia?: RegisterStoreMedia;
+  groceryMedia?: RegisterStoreMedia;
 }
 
 export interface FoodSection {

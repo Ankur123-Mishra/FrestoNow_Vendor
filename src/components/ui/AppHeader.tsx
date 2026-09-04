@@ -9,17 +9,21 @@ interface Props {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  onBack?: () => void;
   right?: React.ReactNode;
 }
 
-export function AppHeader({ title, subtitle, showBack, right }: Props) {
+export function AppHeader({ title, subtitle, showBack, onBack, right }: Props) {
   const navigation = useNavigation();
 
   return (
     <View style={styles.wrap}>
       <View style={styles.left}>
         {showBack ? (
-          <Pressable onPress={() => navigation.goBack()} style={styles.back} hitSlop={10}>
+          <Pressable
+            onPress={() => (onBack ? onBack() : navigation.goBack())}
+            style={styles.back}
+            hitSlop={10}>
             <ChevronLeft size={24} color={colors.text} />
           </Pressable>
         ) : null}

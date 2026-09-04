@@ -7,9 +7,9 @@ import { Screen } from '@/components/layout/Screen';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { MODULES } from '@/config/modules';
-import { MODULE_TYPES } from '@/config/constants';
 import type { ModuleType } from '@/config/constants';
 import { colors, radius, shadows } from '@/theme';
+import { useToastStore } from '@/store/toastStore';
 import type { AuthNavigation } from '@/types';
 
 const MODULE_ICONS: Record<ModuleType, LucideIcon> = {
@@ -18,22 +18,35 @@ const MODULE_ICONS: Record<ModuleType, LucideIcon> = {
   FOOD: UtensilsCrossed,
 };
 
+/** Order matches website: Ecommerce, Food, Grocery */
+const SELECT_ORDER: ModuleType[] = ['ECOMMERCE', 'FOOD', 'GROCERY'];
+
 export function ModuleSelectScreen() {
   const navigation = useNavigation<AuthNavigation>();
+  const showToast = useToastStore(s => s.show);
   const [selected, setSelected] = useState<ModuleType | null>(null);
 
+  const onContinue = () => {
+    if (!selected) {
+      showToast('Select one business type: Ecommerce, Food, or Grocery', 'error');
+      return;
+    }
+    navigation.navigate('Register', { services: [selected] });
+  };
+
   return (
-    <Screen scroll>
+    <Screen>
       <AppHeader
         title="Choose your business"
-        subtitle="Select a module to continue registration"
+        subtitle="Step 1 of registration — pick one"
         showBack
       />
       <Text style={styles.hint}>
-        You will register as this type of vendor. Catalog, orders and tools will match the module you pick.
+        Choose Ecommerce, Food delivery, or Grocery. You can register for only one business type at a
+        time. Food and Grocery include a store setup step next.
       </Text>
       <View style={styles.list}>
-        {MODULE_TYPES.map(key => {
+        {SELECT_ORDER.map(key => {
           const meta = MODULES[key];
           const Icon = MODULE_ICONS[key];
           const active = selected === key;
@@ -41,6 +54,8 @@ export function ModuleSelectScreen() {
             <Pressable
               key={key}
               onPress={() => setSelected(key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
               style={({ pressed }) => [
                 styles.card,
                 active && styles.cardActive,
@@ -62,8 +77,8 @@ export function ModuleSelectScreen() {
       </View>
       <AppButton
         title="Continue"
-        disabled={!selected}
-        onPress={() => selected && navigation.navigate('Register', { moduleType: selected })}
+        onPress={onContinue}
+        style={!selected ? styles.continueIdle : undefined}
       />
       <Pressable onPress={() => navigation.navigate('Login')} style={styles.linkWrap}>
         <Text style={styles.link}>Already registered? Login</Text>
@@ -123,6 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand[600],
     borderColor: colors.brand[600],
   },
+  continueIdle: { opacity: 0.55 },
   linkWrap: { marginTop: 16, alignItems: 'center' },
   link: { color: colors.brand[700], fontWeight: '700' },
 });

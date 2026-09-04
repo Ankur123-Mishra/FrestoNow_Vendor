@@ -151,8 +151,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true });
     try {
       const response = await authService.register(payload);
-      if (payload.moduleType) {
-        await storage.set(STORAGE_KEYS.ACTIVE_MODULE, payload.moduleType);
+      const primaryModule = payload.moduleType || payload.services?.[0];
+      if (primaryModule) {
+        await storage.set(STORAGE_KEYS.ACTIVE_MODULE, primaryModule);
       }
       set({ loading: false });
       const message =

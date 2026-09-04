@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -34,11 +33,11 @@ export function Screen({ children, scroll = false, padded = true, style }: Props
             isTablet && styles.tablet,
             style,
           ]}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
-          removeClippedSubviews={Platform.OS === 'android'}
+          removeClippedSubviews={false}
           automaticallyAdjustKeyboardInsets>
           {children}
         </ScrollView>

@@ -33,10 +33,13 @@ export function AppButton({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      unstable_pressDelay={0}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(isDisabled) }}
       style={({ pressed }) => [
         styles.base,
         styles[variant],
-        pressed && styles.pressed,
+        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
       ]}>

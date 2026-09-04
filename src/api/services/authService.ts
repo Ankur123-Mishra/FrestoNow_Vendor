@@ -1,11 +1,67 @@
 import { apiClient } from '@/api/client';
 import { endpoints } from '@/api/endpoints';
 import { ENV } from '@/config/env';
-import type { LoginPayload, RegisterPayload } from '@/types';
+import type { LoginPayload, PickedImage, RegisterPayload, RegisterStoreMedia } from '@/types';
+
+function appendFile(form: FormData, field: string, image: PickedImage, fallbackName: string) {
+  form.append(field, {
+    uri: image.uri,
+    type: image.type || 'image/jpeg',
+    name: image.fileName || fallbackName,
+  } as unknown as Blob);
+}
+
+function appendStoreMedia(body: FormData, moduleType: 'FOOD' | 'GROCERY', media?: RegisterStoreMedia) {
+  if (!media) {
+    return;
+  }
+  const prefix = moduleType === 'FOOD' ? 'food' : 'grocery';
+  if (media.logo) {
+    appendFile(body, `${prefix}_logo`, media.logo, `${prefix}-logo.jpg`);
+  }
+  if (media.cover) {
+    appendFile(body, `${prefix}_cover`, media.cover, `${prefix}-cover.jpg`);
+  }
+  if (media.fssai) {
+    appendFile(body, `${prefix}_fssai`, media.fssai, `${prefix}-fssai.jpg`);
+  }
+}
+
+/** Multipart body matching the vendor website registration. */
+export function buildRegisterFormData(payload: RegisterPayload): FormData {
+  const body = new FormData();
+  body.append('name', payload.name.trim());
+  body.append('shopname', payload.shopname.trim());
+  body.append('email', payload.email.trim().toLowerCase());
+  body.append('phone', payload.phone.trim());
+  body.append('password', payload.password);
+  body.append('services', JSON.stringify(payload.services));
+  if (payload.gst_no?.trim()) {
+    body.append('gst_no', payload.gst_no.trim());
+  }
+  if (payload.eid_no?.trim()) {
+    body.append('eid_no', payload.eid_no.trim());
+  }
+  body.append('pickup_location', payload.pickup_location.trim());
+  body.append('pickup_pin_code', payload.pickup_pin_code.trim());
+  body.append('bank_name', payload.bank_name.trim());
+  body.append('bank_account_no', payload.bank_account_no.trim());
+  body.append('bank_ifsc', payload.bank_ifsc.trim());
+  if (payload.stores?.length) {
+    body.append('stores', JSON.stringify(payload.stores));
+  }
+  if (payload.services.includes('FOOD')) {
+    appendStoreMedia(body, 'FOOD', payload.foodMedia);
+  }
+  if (payload.services.includes('GROCERY')) {
+    appendStoreMedia(body, 'GROCERY', payload.groceryMedia);
+  }
+  return body;
+}
 
 export const authService = {
   register(payload: RegisterPayload) {
-    return apiClient.post(endpoints.auth.register, payload);
+    return apiClient.post(endpoints.auth.register, buildRegisterFormData(payload));
   },
 
   async login(payload: LoginPayload) {

@@ -7,7 +7,7 @@ import type { ModuleType } from '@/config/constants';
 export type AuthStackParamList = {
   Login: undefined;
   ModuleSelect: undefined;
-  Register: { moduleType: ModuleType };
+  Register: { services: ModuleType[] };
 };
 
 export type MainTabParamList = {
