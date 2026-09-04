@@ -38,7 +38,7 @@ type GeoLocationFieldProps = {
 export function GeoLocationField({
   latitude,
   longitude,
-  initialQuery = '',
+  initialQuery: _initialQuery = '',
   onPick,
   onLatLngChange,
   radiusKm = null,
@@ -47,7 +47,8 @@ export function GeoLocationField({
   showCoordinates = true,
 }: GeoLocationFieldProps) {
   const mapsConfigured = isGoogleMapsConfigured();
-  const [query, setQuery] = useState(initialQuery);
+  // Search starts empty — suggestions only appear when the user types.
+  const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 

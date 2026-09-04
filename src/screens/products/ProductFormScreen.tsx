@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Trash2 } from 'lucide-react-native';
@@ -419,23 +419,28 @@ const VariantCard = React.memo(function VariantCard({
                 onChangeText={text => onChange(row.id, { variantName: text })}
                 placeholder="e.g. Regular, Medium, Large"
               />
-              <View style={styles.row2}>
-                <View style={styles.col}>
-                  <AppInput
-                    label="Serving size"
-                    value={row.servingSize}
-                    onChangeText={text => onChange(row.id, { servingSize: text })}
-                    optional
-                    placeholder="500"
-                  />
+              <View style={styles.servingBlock}>
+                <View style={styles.servingHead}>
+                  <Text style={[styles.label, styles.servingHeadLabel]}>Serving size & unit</Text>
+                  <Text style={styles.servingOptional}>Optional</Text>
                 </View>
-                <View style={styles.col}>
-                  <Text style={styles.label}>Serving unit</Text>
-                  <View style={styles.chips}>
+                <View style={styles.servingContent}>
+                  <View style={styles.servingSizeField}>
+                    <TextInput
+                      value={row.servingSize}
+                      onChangeText={text => onChange(row.id, { servingSize: text })}
+                      placeholder="Size"
+                      placeholderTextColor={colors.muted}
+                      keyboardType="decimal-pad"
+                      style={styles.servingSizeInput}
+                    />
+                  </View>
+                  <View style={styles.unitChips}>
                     {FOOD_SERVING_UNIT_OPTIONS.map(unit => (
                       <Chip
                         key={unit}
                         label={unit}
+                        compact
                         selected={row.servingUnit === unit}
                         onPress={() =>
                           onChange(row.id, {
@@ -1897,6 +1902,46 @@ const styles = StyleSheet.create({
   modifierCheckOn: { color: colors.brand[800] },
   modifierMeta: { marginTop: 4, color: colors.muted, fontWeight: '600', fontSize: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+  servingBlock: { marginBottom: 14 },
+  servingHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  servingHeadLabel: { marginBottom: 0 },
+  servingOptional: { color: colors.muted, fontSize: 12 },
+  servingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  servingSizeField: {
+    width: 88,
+    minHeight: 36,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  servingSizeInput: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    paddingVertical: 8,
+    textAlign: 'center',
+  },
+  unitChips: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 180,
+  },
   error: { color: colors.danger, marginBottom: 8, fontSize: 12 },
   row2: { flexDirection: 'row', gap: 10 },
   row3: { flexDirection: 'row', gap: 8 },

@@ -36,64 +36,89 @@ export function PlacesAutocompleteInput({
 }: PlacesAutocompleteInputProps) {
   const configured = isGoogleMapsConfigured();
   const sessionTokenRef = useRef(newPlacesSessionToken());
-  const skipSearchRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+  const biasRef = useRef(bias);
+  biasRef.current = bias;
+
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!configured) {
-      setPredictions([]);
-      return;
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      requestIdRef.current += 1;
+    };
+  }, []);
+
+  const clearSuggestions = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
     }
-    const query = value.trim();
-    if (skipSearchRef.current) {
-      skipSearchRef.current = false;
-      return;
+    requestIdRef.current += 1;
+    setPredictions([]);
+    setLoading(false);
+    setError(null);
+  };
+
+  const searchFromTyping = (text: string) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
     }
-    if (query.length < 2) {
+
+    const query = text.trim();
+    if (!configured || query.length < 2) {
+      requestIdRef.current += 1;
       setPredictions([]);
+      setLoading(false);
       setError(null);
       return;
     }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setLoading(true);
+
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
+    debounceRef.current = setTimeout(async () => {
       try {
         const next = await fetchPlacePredictions(query, {
           sessionToken: sessionTokenRef.current,
-          bias,
+          bias: biasRef.current,
         });
-        if (!cancelled) {
-          setPredictions(next);
-          setError(null);
+        if (requestId !== requestIdRef.current) {
+          return;
         }
+        setPredictions(next);
+        setError(null);
       } catch (reason) {
-        if (!cancelled) {
-          setPredictions([]);
-          setError((reason as Error).message || 'Could not search places');
+        if (requestId !== requestIdRef.current) {
+          return;
         }
+        setPredictions([]);
+        setError((reason as Error).message || 'Could not search places');
       } finally {
-        if (!cancelled) {
+        if (requestId === requestIdRef.current) {
           setLoading(false);
         }
       }
     }, 280);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [bias?.lat, bias?.lng, configured, value]);
+  };
+
+  const handleChangeText = (text: string) => {
+    onChange(text);
+    searchFromTyping(text);
+  };
 
   const selectPlace = async (prediction: PlacePrediction) => {
-    skipSearchRef.current = true;
-    setPredictions([]);
+    clearSuggestions();
     onChange(prediction.label);
     try {
       const place = await fetchPlaceDetails(prediction.placeId, sessionTokenRef.current);
       sessionTokenRef.current = newPlacesSessionToken();
       if (place) {
-        skipSearchRef.current = true;
         onChange(place.label);
         onPlaceSelect(place);
       }
@@ -108,7 +133,7 @@ export function PlacesAutocompleteInput({
         <MapPin size={16} color={colors.muted} />
         <TextInput
           value={value}
-          onChangeText={onChange}
+          onChangeText={handleChangeText}
           placeholder={configured ? placeholder : 'Maps API key missing'}
           placeholderTextColor={colors.muted}
           autoCorrect={false}

@@ -155,6 +155,8 @@ export function MoreScreen() {
             subtitle="Profile, shop and bank details"
             onPress={() => navigation.navigate('VendorProfile')}
           />
+          
+          {/* Hidden — edit is available from Account details
           <View style={styles.divider} />
           <MenuRow
             icon={Store}
@@ -162,6 +164,7 @@ export function MoreScreen() {
             subtitle="Update name, GST, pickup and bank"
             onPress={() => navigation.navigate('VendorDetails')}
           />
+          */}
 
           {isFood || isGrocery ? (
             <>

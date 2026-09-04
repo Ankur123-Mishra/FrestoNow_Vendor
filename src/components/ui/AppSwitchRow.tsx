@@ -1,5 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, Switch, Text } from 'react-native';
+import {
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Switch,
+  Text,
+  ViewStyle,
+} from 'react-native';
 import { colors, radius } from '@/theme';
 
 interface SwitchProps {
@@ -26,14 +33,22 @@ export const Chip = React.memo(function Chip({
   label,
   selected,
   onPress,
+  compact,
+  style,
 }: {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  compact?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipOn]}>
-      <Text style={[styles.chipText, selected && styles.chipTextOn]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, compact && styles.chipCompact, selected && styles.chipOn, style]}>
+      <Text style={[styles.chipText, compact && styles.chipTextCompact, selected && styles.chipTextOn]}>
+        {label}
+      </Text>
     </Pressable>
   );
 });
@@ -59,10 +74,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
   },
+  chipCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 0,
+    marginBottom: 0,
+  },
   chipOn: {
     backgroundColor: colors.brand[50],
     borderColor: colors.brand[600],
   },
   chipText: { color: colors.muted, fontWeight: '700', fontSize: 12 },
+  chipTextCompact: { fontSize: 11, lineHeight: 14 },
   chipTextOn: { color: colors.brand[800] },
 });
